@@ -1,0 +1,48 @@
+{
+    "name": "TaskFlow · Премиум планировщик",
+    "short_name": "TaskFlow",
+    "description": "Премиальный планировщик задач и трекер привычек с локальным хранением и офлайн-режимом.",
+    "start_url": "./index.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#0a0f1a",
+    "theme_color": "#6d8cff",
+    "lang": "ru",
+    "dir": "ltr",
+    "categories": ["productivity", "lifestyle", "utilities"],
+    "icons": [
+        {
+            "src": "icons/web-app-manifest-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/web-app-manifest-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/web-app-manifest-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Задачи",
+            "short_name": "Задачи",
+            "description": "Открыть список задач",
+            "url": "./index.html"
+        },
+        {
+            "name": "Статистика",
+            "short_name": "Статистика",
+            "description": "Открыть статистику",
+            "url": "./index.html"
+        }
+    ]
+}

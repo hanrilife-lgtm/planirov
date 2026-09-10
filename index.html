@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>TaskFlow · Премиум планировщик задач и привычек</title>
+    <meta name="description" content="Премиальный планировщик задач и трекер привычек. Работает офлайн, хранит данные локально, бесплатно.">
+    <meta name="keywords" content="планировщик, задачи, привычки, todo, продуктивность, PWA">
+    <meta name="author" content="TaskFlow">
+    <meta name="robots" content="index, follow">
+
+    <!-- ============ FAVICONS ============ -->
+    <link rel="icon" href="icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+    <link rel="icon" type="image/png" sizes="96x96" href="icons/favicon-96x96.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+
+    <!-- ============ PWA ============ -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6d8cff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TaskFlow">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- ============ OG / SOCIAL ============ -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="TaskFlow · Премиум планировщик">
+    <meta property="og:description" content="Планировщик задач и трекер привычек. Работает офлайн, данные хранятся локально.">
+    <meta property="og:image" content="icons/web-app-manifest-512x512.png">
+    <meta property="og:site_name" content="TaskFlow">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="TaskFlow · Премиум планировщик">
+    <meta name="twitter:description" content="Планировщик задач и трекер привычек. Работает офлайн.">
+    <meta name="twitter:image" content="icons/web-app-manifest-512x512.png">
+
+    <!-- ============ FONTS & ICONS ============ -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Шапка -->
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div class="logo-text">TaskFlow</div>
+            </div>
+            <div class="header-actions">
+                <button class="badge badge-btn" id="notifyBadge" title="Включить уведомления" hidden>
+                    <i class="fas fa-bell"></i>
+                    <span>Уведомления</span>
+                </button>
+                <button class="badge badge-btn" id="installBadge" title="Установить приложение" hidden>
+                    <i class="fas fa-download"></i>
+                    <span>Установить</span>
+                </button>
+                <div class="badge">
+                    <i class="fas fa-crown"></i>
+                    <span>Премиум</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Вкладки -->
+        <nav class="tabs" role="tablist">
+            <button class="tab active" data-tab="planner" role="tab" aria-selected="true">
+                <i class="fas fa-list-check"></i> Планировщик
+            </button>
+            <button class="tab" data-tab="stats" role="tab" aria-selected="false">
+                <i class="fas fa-chart-line"></i> Статистика
+            </button>
+        </nav>
+
+        <!-- ПАНЕЛЬ: Планировщик -->
+        <div class="tab-panel active" id="panel-planner" role="tabpanel">
+            <div class="grid-2">
+                <!-- Задачи -->
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Задачи</span>
+                        </div>
+                        <span class="count-badge" id="taskCount">0</span>
+                    </div>
+
+                    <div class="add-form">
+                        <input type="text" id="taskInput" placeholder="Что нужно сделать?" autocomplete="off" aria-label="Новая задача">
+                        <input type="date" id="taskDate" class="date-input" title="Дедлайн" aria-label="Дедлайн">
+                        <button id="addTaskBtn" aria-label="Добавить задачу">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+
+                    <div class="repeat-row">
+                        <label class="repeat-label" for="taskRepeat">
+                            <i class="fas fa-redo"></i> Повтор:
+                        </label>
+                        <select id="taskRepeat" class="repeat-select">
+                            <option value="none">Не повторять</option>
+                            <option value="daily">Каждый день</option>
+                            <option value="weekly">Каждую неделю</option>
+                            <option value="monthly">Каждый месяц</option>
+                        </select>
+                    </div>
+
+                    <div class="filters">
+                        <button class="filter-btn active" data-filter="all">Все</button>
+                        <button class="filter-btn" data-filter="active">Активные</button>
+                        <button class="filter-btn" data-filter="completed">Выполнено</button>
+                        <button class="filter-btn" data-filter="overdue">Просрочено</button>
+                    </div>
+
+                    <div class="items-list" id="taskList"></div>
+                </section>
+
+                <!-- Привычки -->
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <i class="fas fa-seedling"></i>
+                            <span>Привычки</span>
+                        </div>
+                        <span class="count-badge" id="habitCount">0</span>
+                    </div>
+
+                    <div class="add-form">
+                        <input type="text" id="habitInput" placeholder="Новая привычка..." autocomplete="off" aria-label="Новая привычка">
+                        <input type="number" id="habitTarget" class="target-input" min="1" max="365" value="7" title="Цель (дней)" aria-label="Цель (дней)">
+                        <button id="addHabitBtn" aria-label="Добавить привычку">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+
+                    <div class="items-list" id="habitList"></div>
+                </section>
+            </div>
+        </div>
+
+        <!-- ПАНЕЛЬ: Статистика -->
+        <div class="tab-panel" id="panel-stats" role="tabpanel">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-check-double"></i></div>
+                    <div class="stat-value" id="statCompletedWeek">0</div>
+                    <div class="stat-label">Задач выполнено за 7 дней</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-list"></i></div>
+                    <div class="stat-value" id="statCreatedWeek">0</div>
+                    <div class="stat-label">Задач создано за 7 дней</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-fire"></i></div>
+                    <div class="stat-value" id="statBestStreak">0</div>
+                    <div class="stat-label">Лучшая серия привычек</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-percent"></i></div>
+                    <div class="stat-value" id="statRate">0%</div>
+                    <div class="stat-label">Продуктивность</div>
+                </div>
+            </div>
+
+            <div class="chart-section">
+                <h3 class="chart-title">
+                    <i class="fas fa-chart-column"></i> Активность за неделю
+                </h3>
+                <div class="chart" id="weekChart"></div>
+            </div>
+        </div>
+
+        <!-- Футер -->
+        <footer class="app-footer">
+            <div>© TaskFlow · Данные хранятся локально</div>
+            <div class="footer-actions">
+                <button class="footer-btn" id="exportBtn">
+                    <i class="fas fa-file-export"></i> Экспорт
+                </button>
+                <button class="footer-btn" id="importBtn">
+                    <i class="fas fa-file-import"></i> Импорт
+                </button>
+                <input type="file" id="importInput" accept="application/json" hidden>
+                <button class="footer-btn" id="resetTasksBtn">
+                    <i class="fas fa-undo-alt"></i> Сброс задач
+                </button>
+                <button class="footer-btn" id="resetHabitsBtn">
+                    <i class="fas fa-undo-alt"></i> Сброс привычек
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Модальное окно редактирования -->
+    <div class="modal-overlay" id="modalOverlay" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <h3 class="modal-title" id="modalTitle">Редактирование</h3>
+            <input type="text" id="modalInput" class="modal-input" placeholder="Название">
+            <div id="modalExtra"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="modalCancel" type="button">Отмена</button>
+                <button class="btn btn-primary" id="modalSave" type="button">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
