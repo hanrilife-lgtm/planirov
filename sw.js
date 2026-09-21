@@ -1,8 +1,4 @@
-/* ============================================
-   TASKFLOW · SERVICE WORKER
-   ============================================ */
-
-const CACHE_VERSION = 'taskflow-v3';
+const CACHE_VERSION = 'taskflow-v4';
 const CACHE_NAME = `${CACHE_VERSION}-static`;
 
 const PRECACHE_ASSETS = [
