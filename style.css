@@ -1,6 +1,3 @@
-/* ============================================
-   TASKFLOW · PREMIUM STYLES
-   ============================================ */
 
 * {
     margin: 0;
@@ -133,6 +130,7 @@ body {
     border-radius: 1.2rem;
     border: 1px solid rgba(255, 255, 255, 0.04);
     width: fit-content;
+    flex-wrap: wrap;
 }
 
 .tab {
@@ -186,11 +184,15 @@ body {
 
 .section:hover { border-color: rgba(109, 140, 255, 0.2); }
 
+.section-full { width: 100%; }
+
 .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .section-title {
@@ -701,6 +703,7 @@ body {
     z-index: 1000;
     padding: 1.5rem;
     animation: fadeIn 0.2s ease;
+    overflow-y: auto;
 }
 
 .modal-overlay[hidden] { display: none; }
@@ -710,10 +713,12 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 2rem;
     padding: 2rem;
-    max-width: 480px;
+    max-width: 520px;
     width: 100%;
     box-shadow: 0 30px 60px -20px #000;
     animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
 }
 
 @keyframes modalIn {
@@ -745,6 +750,11 @@ body {
 .modal-input:focus {
     border-color: #6d8cff;
     box-shadow: 0 0 0 3px rgba(109, 140, 255, 0.2);
+}
+
+.modal-textarea {
+    resize: vertical;
+    min-height: 70px;
 }
 
 .modal-extra { margin-bottom: 1rem; }
@@ -860,12 +870,310 @@ body {
     color: #fff;
 }
 
+/* ============================================
+   ТРЕКЕР ЗАКАЗОВ
+   ============================================ */
+
+.header-actions-inline {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.btn-mini {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #c7d2fe;
+    padding: 0.55rem 1rem;
+    border-radius: 100px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-mini:hover {
+    background: rgba(109, 140, 255, 0.15);
+    border-color: rgba(109, 140, 255, 0.4);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+#addOrderBtn {
+    background: linear-gradient(135deg, #6d8cff, #8f6eff);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 8px 16px -6px #6d8cff;
+}
+
+#addOrderBtn:hover {
+    box-shadow: 0 12px 20px -6px #6d8cff;
+    transform: translateY(-2px);
+}
+
+.orders-table-wrap {
+    overflow-x: auto;
+    border-radius: 1.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(12, 18, 30, 0.4);
+}
+
+.orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    min-width: 1100px;
+}
+
+.orders-table thead {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.orders-table th {
+    text-align: left;
+    padding: 1rem 0.9rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #a8b8ff;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.orders-table td {
+    padding: 0.8rem 0.9rem;
+    color: #eef2ff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    vertical-align: middle;
+}
+
+.orders-table tbody tr {
+    transition: background 0.2s ease;
+    animation: fadeIn 0.3s ease;
+}
+
+.orders-table tbody tr:hover {
+    background: rgba(109, 140, 255, 0.06);
+}
+
+.orders-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.orders-table .cell-num {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    text-align: right;
+}
+
+.orders-table .cell-week {
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.orders-table .cell-notes {
+    color: #b8c5e0;
+    font-size: 0.85rem;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.orders-table .cell-avg {
+    font-weight: 600;
+    background: linear-gradient(135deg, #a8b8ff, #d3b8ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.orders-table tfoot td {
+    padding: 1rem 0.9rem;
+    background: rgba(109, 140, 255, 0.08);
+    font-weight: 700;
+    color: #fff;
+    border-top: 2px solid rgba(109, 140, 255, 0.3);
+    border-bottom: none;
+    font-size: 0.92rem;
+}
+
+.orders-table tfoot .cell-total-label {
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    color: #a8b8ff;
+}
+
+.orders-table tfoot .cell-total-num {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    background: linear-gradient(135deg, #ffffff, #a8b8ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 1rem;
+}
+
+.orders-table .row-actions {
+    display: flex;
+    gap: 0.3rem;
+    justify-content: flex-end;
+}
+
+/* ---------- Карточки заказов (мобильные) ---------- */
+.orders-cards {
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.order-card {
+    background: rgba(20, 28, 45, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 1.4rem;
+    padding: 1.2rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.order-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.order-card-week {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.order-card-actions {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.order-card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem 1rem;
+}
+
+.order-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.order-field-label {
+    font-size: 0.72rem;
+    color: #8e9bb8;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 500;
+}
+
+.order-field-value {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+.order-field-value.avg {
+    background: linear-gradient(135deg, #a8b8ff, #d3b8ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.order-field-notes {
+    grid-column: 1 / -1;
+}
+
+.order-field-notes .order-field-value {
+    font-weight: 400;
+    color: #b8c5e0;
+    font-size: 0.88rem;
+    white-space: normal;
+}
+
+.order-total-card {
+    background: linear-gradient(135deg, rgba(109, 140, 255, 0.15), rgba(164, 110, 255, 0.15));
+    border: 1px solid rgba(109, 140, 255, 0.3);
+    border-radius: 1.4rem;
+    padding: 1.3rem;
+    margin-top: 0.5rem;
+}
+
+.order-total-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #a8b8ff;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+}
+
+.order-total-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+}
+
+.order-total-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.order-total-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #ffffff, #a8b8ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-variant-numeric: tabular-nums;
+}
+
+.order-total-label {
+    font-size: 0.72rem;
+    color: #8e9bb8;
+}
+
+/* ---------- Modal заказов ---------- */
+.order-modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem 0.8rem;
+    margin-bottom: 0.8rem;
+}
+
+.order-modal-grid .modal-input {
+    margin-bottom: 0;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
     .grid-2 { grid-template-columns: 1fr; gap: 1.8rem; }
     .app-container { padding: 1.8rem; border-radius: 2.5rem; }
     .logo-text { font-size: 1.6rem; }
     .chart { height: 180px; }
+    .orders-table-wrap { display: none; }
+    .orders-cards { display: flex; }
 }
 
 @media (max-width: 500px) {
@@ -883,5 +1191,10 @@ body {
     .stats-grid { grid-template-columns: 1fr 1fr; }
     .stat-value { font-size: 1.6rem; }
     .tabs { width: 100%; }
-    .tab { flex: 1; justify-content: center; }
+    .tab { flex: 1; justify-content: center; font-size: 0.82rem; padding: 0.6rem 0.8rem; }
+    .order-card-grid { grid-template-columns: 1fr; }
+    .order-total-grid { grid-template-columns: 1fr; gap: 0.8rem; }
+    .header-actions-inline { width: 100%; }
+    .header-actions-inline .btn-mini { flex: 1; justify-content: center; }
+    .order-modal-grid { grid-template-columns: 1fr; }
 }
