@@ -4,18 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>TaskFlow · Премиум планировщик задач и привычек</title>
-    <meta name="description" content="Премиальный планировщик задач и трекер привычек. Работает офлайн, хранит данные локально, бесплатно.">
-    <meta name="keywords" content="планировщик, задачи, привычки, todo, продуктивность, PWA">
+    <meta name="description" content="Премиальный планировщик задач, трекер привычек и учёт заказов. Работает офлайн, хранит данные локально, бесплатно.">
+    <meta name="keywords" content="планировщик, задачи, привычки, заказы, фриланс, todo, продуктивность, PWA">
     <meta name="author" content="TaskFlow">
     <meta name="robots" content="index, follow">
 
-    <!-- ============ FAVICONS ============ -->
     <link rel="icon" href="icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
     <link rel="icon" type="image/png" sizes="96x96" href="icons/favicon-96x96.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 
-    <!-- ============ PWA ============ -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#6d8cff">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,18 +21,16 @@
     <meta name="apple-mobile-web-app-title" content="TaskFlow">
     <meta name="mobile-web-app-capable" content="yes">
 
-    <!-- ============ OG / SOCIAL ============ -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="TaskFlow · Премиум планировщик">
-    <meta property="og:description" content="Планировщик задач и трекер привычек. Работает офлайн, данные хранятся локально.">
+    <meta property="og:description" content="Планировщик задач, трекер привычек и учёт заказов. Работает офлайн.">
     <meta property="og:image" content="icons/web-app-manifest-512x512.png">
     <meta property="og:site_name" content="TaskFlow">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="TaskFlow · Премиум планировщик">
-    <meta name="twitter:description" content="Планировщик задач и трекер привычек. Работает офлайн.">
+    <meta name="twitter:description" content="Планировщик задач, трекер привычек и учёт заказов. Работает офлайн.">
     <meta name="twitter:image" content="icons/web-app-manifest-512x512.png">
 
-    <!-- ============ FONTS & ICONS ============ -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
@@ -44,7 +40,6 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Шапка -->
         <header class="app-header">
             <div class="logo-area">
                 <div class="logo-icon">
@@ -68,10 +63,12 @@
             </div>
         </header>
 
-        <!-- Вкладки -->
         <nav class="tabs" role="tablist">
             <button class="tab active" data-tab="planner" role="tab" aria-selected="true">
                 <i class="fas fa-list-check"></i> Планировщик
+            </button>
+            <button class="tab" data-tab="orders" role="tab" aria-selected="false">
+                <i class="fas fa-briefcase"></i> Заказы
             </button>
             <button class="tab" data-tab="stats" role="tab" aria-selected="false">
                 <i class="fas fa-chart-line"></i> Статистика
@@ -81,7 +78,6 @@
         <!-- ПАНЕЛЬ: Планировщик -->
         <div class="tab-panel active" id="panel-planner" role="tabpanel">
             <div class="grid-2">
-                <!-- Задачи -->
                 <section class="section">
                     <div class="section-header">
                         <div class="section-title">
@@ -121,7 +117,6 @@
                     <div class="items-list" id="taskList"></div>
                 </section>
 
-                <!-- Привычки -->
                 <section class="section">
                     <div class="section-header">
                         <div class="section-title">
@@ -142,6 +137,49 @@
                     <div class="items-list" id="habitList"></div>
                 </section>
             </div>
+        </div>
+
+        <!-- ПАНЕЛЬ: Заказы -->
+        <div class="tab-panel" id="panel-orders" role="tabpanel">
+            <section class="section section-full">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="fas fa-briefcase"></i>
+                        <span>Трекер заказов</span>
+                    </div>
+                    <div class="header-actions-inline">
+                        <span class="count-badge" id="ordersCount">0 недель</span>
+                        <button class="btn-mini" id="addOrderBtn">
+                            <i class="fas fa-plus"></i> Добавить неделю
+                        </button>
+                        <button class="btn-mini" id="exportCsvBtn">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                    </div>
+                </div>
+
+                <div class="orders-table-wrap">
+                    <table class="orders-table" id="ordersTable">
+                        <thead>
+                            <tr>
+                                <th>Неделя</th>
+                                <th>Отправлено<br>откликов</th>
+                                <th>Ответов</th>
+                                <th>Сделок</th>
+                                <th>Доход ₽</th>
+                                <th>Средний чек</th>
+                                <th>Клиентов<br>на поддержке</th>
+                                <th>Заметки</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersBody"></tbody>
+                        <tfoot id="ordersFoot"></tfoot>
+                    </table>
+                </div>
+
+                <div class="orders-cards" id="ordersCards"></div>
+            </section>
         </div>
 
         <!-- ПАНЕЛЬ: Статистика -->
@@ -177,7 +215,6 @@
             </div>
         </div>
 
-        <!-- Футер -->
         <footer class="app-footer">
             <div>© TaskFlow · Данные хранятся локально</div>
             <div class="footer-actions">
@@ -198,7 +235,6 @@
         </footer>
     </div>
 
-    <!-- Модальное окно редактирования -->
     <div class="modal-overlay" id="modalOverlay" hidden>
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
             <h3 class="modal-title" id="modalTitle">Редактирование</h3>
@@ -211,7 +247,6 @@
         </div>
     </div>
 
-    <!-- Toast -->
     <div class="toast" id="toast"></div>
 
     <script src="script.js"></script>
