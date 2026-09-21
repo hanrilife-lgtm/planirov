@@ -1,13 +1,3 @@
-/* ============================================
-   TASKFLOW · PREMIUM APP LOGIC (v3 final)
-   + Редактирование
-   + Дедлайны
-   + Уведомления
-   + Повторяющиеся задачи
-   + Экспорт / Импорт
-   + PWA
-   + Статистика
-   ============================================ */
 
 (function () {
     'use strict';
@@ -15,17 +5,20 @@
     /* ========== КОНСТАНТЫ ========== */
     const TASKS_KEY = 'taskflow_tasks_v1';
     const HABITS_KEY = 'taskflow_habits_v1';
+    const ORDERS_KEY = 'taskflow_orders_v1';
     const NOTIF_KEY = 'taskflow_notifications_enabled';
     const NOTIFIED_KEY = 'taskflow_notified_ids';
     const DAY_MS = 86400000;
     const WEEK_DAYS = 7;
-    const CHECK_INTERVAL = 60000; // 1 минута
+    const CHECK_INTERVAL = 60000;
 
     /* ========== СОСТОЯНИЕ ========== */
     let tasks = [];
     let habits = [];
+    let orders = [];
     let currentFilter = 'all';
     let editing = null;
+    let editingOrder = null;
     let notifiedIds = new Set();
     let checkTimer = null;
 
@@ -44,6 +37,13 @@
     const addHabitBtn = $('addHabitBtn');
     const habitListEl = $('habitList');
     const habitCountEl = $('habitCount');
+
+    const ordersBodyEl = $('ordersBody');
+    const ordersFootEl = $('ordersFoot');
+    const ordersCardsEl = $('ordersCards');
+    const ordersCountEl = $('ordersCount');
+    const addOrderBtn = $('addOrderBtn');
+    const exportCsvBtn = $('exportCsvBtn');
 
     const resetTasksBtn = $('resetTasksBtn');
     const resetHabitsBtn = $('resetHabitsBtn');
@@ -121,6 +121,19 @@
         showToast._t = setTimeout(() => toast.classList.remove('show'), 2500);
     }
 
+    function pluralize(n, one, few, many) {
+        const mod10 = n % 10;
+        const mod100 = n % 100;
+        if (mod10 === 1 && mod100 !== 11) return one;
+        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+        return many;
+    }
+
+    function formatMoney(n) {
+        if (!n) return '0';
+        return new Intl.NumberFormat('ru-RU').format(n);
+    }
+
     /* ========== LOCALSTORAGE ========== */
 
     function loadFromStorage() {
@@ -149,6 +162,18 @@
                 ];
             }
 
+            const savedOrders = localStorage.getItem(ORDERS_KEY);
+            if (savedOrders) {
+                const parsed = JSON.parse(savedOrders);
+                orders = Array.isArray(parsed) ? parsed : [];
+            } else {
+                orders = [
+                    { id: generateId(), week: 'Неделя 1', responses: 20, replies: 5, deals: 1, income: 15000, support: 1, notes: 'Первая сделка, клиент доволен' },
+                    { id: generateId(), week: 'Неделя 2', responses: 25, replies: 8, deals: 2, income: 34000, support: 2, notes: 'Два лендинга' },
+                    { id: generateId(), week: 'Неделя 3', responses: 30, replies: 12, deals: 3, income: 52000, support: 3, notes: 'Пошли повторные обращения' },
+                ];
+            }
+
             const savedNotified = localStorage.getItem(NOTIFIED_KEY);
             if (savedNotified) {
                 notifiedIds = new Set(JSON.parse(savedNotified));
@@ -157,6 +182,7 @@
             console.error('Ошибка загрузки:', e);
             tasks = [];
             habits = [];
+            orders = [];
         }
     }
 
@@ -172,6 +198,14 @@
         try { localStorage.setItem(HABITS_KEY, JSON.stringify(habits)); }
         catch (e) {
             console.error('Ошибка сохранения привычек:', e);
+            showToast('Хранилище заполнено', 'fa-exclamation-triangle');
+        }
+    }
+
+    function saveOrders() {
+        try { localStorage.setItem(ORDERS_KEY, JSON.stringify(orders)); }
+        catch (e) {
+            console.error('Ошибка сохранения заказов:', e);
             showToast('Хранилище заполнено', 'fa-exclamation-triangle');
         }
     }
@@ -493,6 +527,145 @@
         }).join('');
     }
 
+    /* ========== РЕНДЕР ЗАКАЗОВ ========== */
+
+    function calcAvg(income, deals) {
+        if (!deals || deals === 0) return 0;
+        return Math.round(income / deals);
+    }
+
+    function getOrdersTotals() {
+        const totalIncome = orders.reduce((sum, o) => sum + (Number(o.income) || 0), 0);
+        const totalDeals = orders.reduce((sum, o) => sum + (Number(o.deals) || 0), 0);
+        const avgCheck = totalDeals > 0 ? Math.round(totalIncome / totalDeals) : 0;
+        return { totalIncome, totalDeals, avgCheck };
+    }
+
+    function renderOrders() {
+        ordersCountEl.textContent = `${orders.length} ${pluralize(orders.length, 'неделя', 'недели', 'недель')}`;
+
+        if (orders.length === 0) {
+            ordersBodyEl.innerHTML = `
+                <tr>
+                    <td colspan="9" style="text-align:center; padding: 3rem 1rem; color:#5a6a8c;">
+                        <i class="fas fa-briefcase" style="font-size:2rem; opacity:0.3; display:block; margin-bottom:0.8rem;"></i>
+                        Нет данных. Нажмите «Добавить неделю».
+                    </td>
+                </tr>
+            `;
+            ordersFootEl.innerHTML = '';
+            ordersCardsEl.innerHTML = '';
+            return;
+        }
+
+        // Таблица (десктоп)
+        ordersBodyEl.innerHTML = orders.map(o => `
+            <tr data-id="${o.id}">
+                <td class="cell-week">${escapeHtml(o.week || '')}</td>
+                <td class="cell-num">${o.responses || 0}</td>
+                <td class="cell-num">${o.replies || 0}</td>
+                <td class="cell-num">${o.deals || 0}</td>
+                <td class="cell-num">${formatMoney(o.income)} ₽</td>
+                <td class="cell-avg">${formatMoney(calcAvg(o.income, o.deals))} ₽</td>
+                <td class="cell-num">${o.support || 0}</td>
+                <td class="cell-notes" title="${escapeHtml(o.notes || '')}">${escapeHtml(o.notes || '—')}</td>
+                <td>
+                    <div class="row-actions">
+                        <button class="icon-btn" data-action="edit-order" data-id="${o.id}" aria-label="Редактировать">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button class="icon-btn delete" data-action="delete-order" data-id="${o.id}" aria-label="Удалить">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        // Итоговая строка
+        const { totalIncome, totalDeals, avgCheck } = getOrdersTotals();
+        ordersFootEl.innerHTML = `
+            <tr>
+                <td class="cell-total-label">Итого</td>
+                <td></td>
+                <td></td>
+                <td class="cell-total-num">${totalDeals}</td>
+                <td class="cell-total-num">${formatMoney(totalIncome)} ₽</td>
+                <td class="cell-total-num">${formatMoney(avgCheck)} ₽</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+        `;
+
+        // Карточки (мобильные)
+        ordersCardsEl.innerHTML = orders.map(o => `
+            <div class="order-card" data-id="${o.id}">
+                <div class="order-card-header">
+                    <span class="order-card-week">${escapeHtml(o.week || '')}</span>
+                    <div class="order-card-actions">
+                        <button class="icon-btn" data-action="edit-order" data-id="${o.id}" aria-label="Редактировать">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button class="icon-btn delete" data-action="delete-order" data-id="${o.id}" aria-label="Удалить">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="order-card-grid">
+                    <div class="order-field">
+                        <span class="order-field-label">Отправлено</span>
+                        <span class="order-field-value">${o.responses || 0}</span>
+                    </div>
+                    <div class="order-field">
+                        <span class="order-field-label">Ответов</span>
+                        <span class="order-field-value">${o.replies || 0}</span>
+                    </div>
+                    <div class="order-field">
+                        <span class="order-field-label">Сделок</span>
+                        <span class="order-field-value">${o.deals || 0}</span>
+                    </div>
+                    <div class="order-field">
+                        <span class="order-field-label">Доход</span>
+                        <span class="order-field-value">${formatMoney(o.income)} ₽</span>
+                    </div>
+                    <div class="order-field">
+                        <span class="order-field-label">Средний чек</span>
+                        <span class="order-field-value avg">${formatMoney(calcAvg(o.income, o.deals))} ₽</span>
+                    </div>
+                    <div class="order-field">
+                        <span class="order-field-label">На поддержке</span>
+                        <span class="order-field-value">${o.support || 0}</span>
+                    </div>
+                    ${o.notes ? `
+                        <div class="order-field order-field-notes">
+                            <span class="order-field-label">Заметки</span>
+                            <span class="order-field-value">${escapeHtml(o.notes)}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('') + `
+            <div class="order-total-card">
+                <div class="order-total-title">Итого за всё время</div>
+                <div class="order-total-grid">
+                    <div class="order-total-item">
+                        <div class="order-total-value">${formatMoney(totalIncome)} ₽</div>
+                        <div class="order-total-label">Общий доход</div>
+                    </div>
+                    <div class="order-total-item">
+                        <div class="order-total-value">${totalDeals}</div>
+                        <div class="order-total-label">Всего сделок</div>
+                    </div>
+                    <div class="order-total-item">
+                        <div class="order-total-value">${formatMoney(avgCheck)} ₽</div>
+                        <div class="order-total-label">Средний чек</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     /* ========== СТАТИСТИКА ========== */
 
     function renderStats() {
@@ -674,6 +847,133 @@
         showToast('Привычки сброшены');
     }
 
+    /* ========== ДЕЙСТВИЯ С ЗАКАЗАМИ ========== */
+
+    function openOrderModal(id = null) {
+        editingOrder = id;
+        const order = id ? orders.find(o => o.id === id) : null;
+
+        modalTitle.textContent = id ? 'Редактировать неделю' : 'Новая неделя';
+        modalInput.style.display = 'none';
+        modalInput.value = '';
+
+        modalExtra.innerHTML = `
+            <label class="modal-label">Неделя</label>
+            <input type="text" id="ordWeek" class="modal-input" value="${order ? escapeHtml(order.week || '') : 'Неделя ' + (orders.length + 1)}" placeholder="Например: Неделя 1">
+
+            <div class="order-modal-grid">
+                <div>
+                    <label class="modal-label">Отправлено откликов</label>
+                    <input type="number" id="ordResponses" class="modal-input" min="0" value="${order ? (order.responses || 0) : 0}">
+                </div>
+                <div>
+                    <label class="modal-label">Ответов</label>
+                    <input type="number" id="ordReplies" class="modal-input" min="0" value="${order ? (order.replies || 0) : 0}">
+                </div>
+                <div>
+                    <label class="modal-label">Сделок</label>
+                    <input type="number" id="ordDeals" class="modal-input" min="0" value="${order ? (order.deals || 0) : 0}">
+                </div>
+                <div>
+                    <label class="modal-label">Доход, ₽</label>
+                    <input type="number" id="ordIncome" class="modal-input" min="0" value="${order ? (order.income || 0) : 0}">
+                </div>
+                <div>
+                    <label class="modal-label">Клиентов на поддержке</label>
+                    <input type="number" id="ordSupport" class="modal-input" min="0" value="${order ? (order.support || 0) : 0}">
+                </div>
+            </div>
+
+            <label class="modal-label">Заметки</label>
+            <textarea id="ordNotes" class="modal-input modal-textarea" rows="3" placeholder="Что важного было на этой неделе...">${order ? escapeHtml(order.notes || '') : ''}</textarea>
+        `;
+
+        modalOverlay.hidden = false;
+        setTimeout(() => $('ordWeek').focus(), 50);
+    }
+
+    function saveOrderModal() {
+        const week = $('ordWeek').value.trim();
+        if (!week) {
+            showToast('Укажите название недели', 'fa-exclamation-triangle');
+            return;
+        }
+
+        const data = {
+            week,
+            responses: Number($('ordResponses').value) || 0,
+            replies: Number($('ordReplies').value) || 0,
+            deals: Number($('ordDeals').value) || 0,
+            income: Number($('ordIncome').value) || 0,
+            support: Number($('ordSupport').value) || 0,
+            notes: $('ordNotes').value.trim()
+        };
+
+        if (editingOrder) {
+            const order = orders.find(o => o.id === editingOrder);
+            if (order) Object.assign(order, data);
+            showToast('Запись обновлена');
+        } else {
+            orders.push({ id: generateId(), ...data });
+            showToast('Неделя добавлена');
+        }
+
+        saveOrders();
+        renderOrders();
+        editingOrder = null;
+        closeModal();
+    }
+
+    function deleteOrder(id) {
+        if (!confirm('Удалить запись?')) return;
+        orders = orders.filter(o => o.id !== id);
+        saveOrders();
+        renderOrders();
+        showToast('Запись удалена', 'fa-trash-alt');
+    }
+
+    function exportOrdersCsv() {
+        if (orders.length === 0) {
+            showToast('Нет данных для экспорта', 'fa-exclamation-triangle');
+            return;
+        }
+
+        const headers = ['Неделя', 'Отправлено откликов', 'Ответов', 'Сделок', 'Доход', 'Средний чек', 'Клиентов на поддержке', 'Заметки'];
+        const rows = orders.map(o => [
+            o.week || '',
+            o.responses || 0,
+            o.replies || 0,
+            o.deals || 0,
+            o.income || 0,
+            calcAvg(o.income, o.deals),
+            o.support || 0,
+            (o.notes || '').replace(/"/g, '""')
+        ]);
+
+        const { totalIncome, totalDeals, avgCheck } = getOrdersTotals();
+        rows.push(['ИТОГО', '', '', totalDeals, totalIncome, avgCheck, '', '']);
+
+        const BOM = '\uFEFF';
+        const csv = BOM + [headers, ...rows]
+            .map(r => r.map(cell => {
+                const s = String(cell);
+                return /[",;\n]/.test(s) ? `"${s}"` : s;
+            }).join(';'))
+            .join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const date = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `taskflow-orders-${date}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('CSV экспортирован');
+    }
+
     /* ========== МОДАЛЬНОЕ ОКНО ========== */
 
     function openEditModal(type, id) {
@@ -684,6 +984,7 @@
 
         if (!item) return;
 
+        modalInput.style.display = 'block';
         modalTitle.textContent = type === 'task' ? 'Редактировать задачу' : 'Редактировать привычку';
         modalInput.value = item.text;
 
@@ -714,9 +1015,17 @@
     function closeModal() {
         modalOverlay.hidden = true;
         editing = null;
+        editingOrder = null;
+        modalInput.style.display = 'block';
     }
 
     function saveModal() {
+        // Если открыт режим заказа — идём в свою ветку
+        if (editingOrder || $('ordWeek')) {
+            saveOrderModal();
+            return;
+        }
+
         if (!editing) return;
         const { type, id } = editing;
         const newText = modalInput.value.trim();
@@ -758,10 +1067,11 @@
 
     function exportData() {
         const data = {
-            version: 3,
+            version: 4,
             exportedAt: new Date().toISOString(),
             tasks,
-            habits
+            habits,
+            orders
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -785,18 +1095,22 @@
 
                 const importTasks = Array.isArray(data.tasks) ? data.tasks : null;
                 const importHabits = Array.isArray(data.habits) ? data.habits : null;
+                const importOrders = Array.isArray(data.orders) ? data.orders : null;
 
-                if (!importTasks && !importHabits) throw new Error('Нет данных');
+                if (!importTasks && !importHabits && !importOrders) throw new Error('Нет данных');
 
                 if (!confirm('Импортировать данные? Текущие данные будут заменены.')) return;
 
                 if (importTasks) tasks = importTasks;
                 if (importHabits) habits = importHabits;
+                if (importOrders) orders = importOrders;
 
                 saveTasks();
                 saveHabits();
+                saveOrders();
                 renderTasks();
                 renderHabits();
+                renderOrders();
                 renderStats();
                 showToast('Данные импортированы');
             } catch (err) {
@@ -891,6 +1205,17 @@
     habitListEl.addEventListener('click', handleHabitClickForEdit);
     habitListEl.addEventListener('dblclick', handleHabitDblClick);
 
+    // Делегирование для заказов (таблица + карточки)
+    [ordersBodyEl, ordersCardsEl].forEach(el => {
+        el.addEventListener('click', (e) => {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+            const { action, id } = target.dataset;
+            if (action === 'edit-order') openOrderModal(id);
+            else if (action === 'delete-order') deleteOrder(id);
+        });
+    });
+
     [taskListEl, habitListEl].forEach((el) => {
         el.addEventListener('keydown', (e) => {
             if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -911,6 +1236,9 @@
 
     resetTasksBtn.addEventListener('click', resetTasks);
     resetHabitsBtn.addEventListener('click', resetHabits);
+
+    addOrderBtn.addEventListener('click', () => openOrderModal(null));
+    exportCsvBtn.addEventListener('click', exportOrdersCsv);
 
     exportBtn.addEventListener('click', exportData);
     importBtn.addEventListener('click', () => importInput.click());
@@ -947,6 +1275,7 @@
             if (panel) panel.classList.add('active');
 
             if (tab.dataset.tab === 'stats') renderStats();
+            if (tab.dataset.tab === 'orders') renderOrders();
         });
     });
 
@@ -979,6 +1308,9 @@
             loadFromStorage();
             renderHabits();
             renderStats();
+        } else if (e.key === ORDERS_KEY) {
+            loadFromStorage();
+            renderOrders();
         }
     });
 
@@ -1036,6 +1368,7 @@
         processRepeats();
         renderTasks();
         renderHabits();
+        renderOrders();
         renderStats();
 
         const today = new Date().toISOString().slice(0, 10);
@@ -1047,10 +1380,9 @@
 
         taskInput.focus();
 
-        console.log('%c⚡ TaskFlow Premium v3', 'font-size: 16px; font-weight: bold; color: #6d8cff;');
-        console.log('%c• Двойной клик по тексту — редактирование', 'color: #8e9bb8;');
-        console.log('%c• Уведомления о дедлайнах', 'color: #8e9bb8;');
-        console.log('%c• Повторяющиеся задачи', 'color: #8e9bb8;');
+        console.log('%c⚡ TaskFlow Premium v4', 'font-size: 16px; font-weight: bold; color: #6d8cff;');
+        console.log('%c• Планировщик • Заказы • Статистика', 'color: #8e9bb8;');
+        console.log('%c• Уведомления • Повторы • CSV • PWA', 'color: #8e9bb8;');
     }
 
     setInterval(processRepeats, 300000);
