@@ -1,4 +1,3 @@
-
 (function () {
     'use strict';
 
@@ -6,6 +5,7 @@
     const TASKS_KEY = 'taskflow_tasks_v1';
     const HABITS_KEY = 'taskflow_habits_v1';
     const ORDERS_KEY = 'taskflow_orders_v1';
+    const GOALS_KEY = 'taskflow_goals_v1';
     const NOTIF_KEY = 'taskflow_notifications_enabled';
     const NOTIFIED_KEY = 'taskflow_notified_ids';
     const DAY_MS = 86400000;
@@ -16,6 +16,7 @@
     let tasks = [];
     let habits = [];
     let orders = [];
+    let goals = [];
     let currentFilter = 'all';
     let editing = null;
     let editingOrder = null;
@@ -44,6 +45,9 @@
     const ordersCountEl = $('ordersCount');
     const addOrderBtn = $('addOrderBtn');
     const exportCsvBtn = $('exportCsvBtn');
+
+    const goalsListEl = $('goalsList');
+    const goalsCountEl = $('goalsCount');
 
     const resetTasksBtn = $('resetTasksBtn');
     const resetHabitsBtn = $('resetHabitsBtn');
@@ -134,6 +138,21 @@
         return new Intl.NumberFormat('ru-RU').format(n);
     }
 
+    function formatNumber(n) {
+        return new Intl.NumberFormat('ru-RU').format(Math.round(n));
+    }
+
+    function pluralizeTime(days) {
+        if (days < 1) return 'меньше дня';
+        if (days < 30) return `${days} ${pluralize(days, 'день', 'дня', 'дней')}`;
+        if (days < 365) {
+            const months = Math.round(days / 30);
+            return `≈ ${months} ${pluralize(months, 'месяц', 'месяца', 'месяцев')}`;
+        }
+        const years = (days / 365).toFixed(1);
+        return `≈ ${years} ${pluralize(Math.round(years), 'год', 'года', 'лет')}`;
+    }
+
     /* ========== LOCALSTORAGE ========== */
 
     function loadFromStorage() {
@@ -174,6 +193,14 @@
                 ];
             }
 
+            const savedGoals = localStorage.getItem(GOALS_KEY);
+            if (savedGoals) {
+                const parsed = JSON.parse(savedGoals);
+                goals = Array.isArray(parsed) ? parsed : [];
+            } else {
+                goals = [];
+            }
+
             const savedNotified = localStorage.getItem(NOTIFIED_KEY);
             if (savedNotified) {
                 notifiedIds = new Set(JSON.parse(savedNotified));
@@ -183,6 +210,7 @@
             tasks = [];
             habits = [];
             orders = [];
+            goals = [];
         }
     }
 
@@ -206,6 +234,14 @@
         try { localStorage.setItem(ORDERS_KEY, JSON.stringify(orders)); }
         catch (e) {
             console.error('Ошибка сохранения заказов:', e);
+            showToast('Хранилище заполнено', 'fa-exclamation-triangle');
+        }
+    }
+
+    function saveGoals() {
+        try { localStorage.setItem(GOALS_KEY, JSON.stringify(goals)); }
+        catch (e) {
+            console.error('Ошибка сохранения целей:', e);
             showToast('Хранилище заполнено', 'fa-exclamation-triangle');
         }
     }
@@ -558,7 +594,6 @@
             return;
         }
 
-        // Таблица (десктоп)
         ordersBodyEl.innerHTML = orders.map(o => `
             <tr data-id="${o.id}">
                 <td class="cell-week">${escapeHtml(o.week || '')}</td>
@@ -582,7 +617,6 @@
             </tr>
         `).join('');
 
-        // Итоговая строка
         const { totalIncome, totalDeals, avgCheck } = getOrdersTotals();
         ordersFootEl.innerHTML = `
             <tr>
@@ -598,7 +632,6 @@
             </tr>
         `;
 
-        // Карточки (мобильные)
         ordersCardsEl.innerHTML = orders.map(o => `
             <div class="order-card" data-id="${o.id}">
                 <div class="order-card-header">
@@ -664,6 +697,233 @@
                 </div>
             </div>
         `;
+    }
+
+    /* ========== РЕНДЕР ЦЕЛЕЙ ========== */
+
+    function renderGoals() {
+        goalsCountEl.textContent = goals.length;
+
+        if (goals.length === 0) {
+            goalsListEl.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-bullseye"></i>
+                    <span>Рассчитайте что-то и зафиксируйте как цель</span>
+                </div>
+            `;
+            return;
+        }
+
+        const icons = {
+            money: 'fa-coins',
+            book: 'fa-book'
+        };
+
+        goalsListEl.innerHTML = goals.map(g => {
+            const daysPassed = Math.floor((Date.now() - g.startDate) / DAY_MS);
+            const progress = Math.min((daysPassed / g.totalDays) * 100, 100);
+            const daysLeft = Math.max(g.totalDays - daysPassed, 0);
+
+            return `
+                <div class="goal-card" data-id="${g.id}">
+                    <div class="goal-card-header">
+                        <div class="goal-card-title">
+                            <i class="fas ${icons[g.type] || 'fa-flag'}"></i>
+                            ${escapeHtml(g.title)}
+                        </div>
+                        <div class="goal-card-actions">
+                            <button class="icon-btn delete" data-action="delete-goal" data-id="${g.id}" aria-label="Удалить">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="goal-card-info">
+                        <span><i class="fas fa-info-circle"></i> ${escapeHtml(g.info)}</span>
+                        <span><i class="fas fa-hourglass-half"></i> Осталось: <strong>${pluralizeTime(daysLeft)}</strong></span>
+                    </div>
+                    <div class="goal-progress-bar">
+                        <div class="goal-progress-fill" style="width: ${progress}%"></div>
+                    </div>
+                    <div class="goal-progress-label">Прогресс: ${Math.round(progress)}% · ${daysPassed} из ${g.totalDays} дней</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /* ========== КАЛЬКУЛЯТОРЫ ========== */
+
+    function calcMoney() {
+        const amount = Number($('moneyAmount').value) || 0;
+        const period = $('moneyPeriod').value;
+        const goalSum = Number($('moneyGoal').value) || 0;
+
+        if (amount <= 0) {
+            showToast('Введите сумму больше 0', 'fa-exclamation-triangle');
+            return;
+        }
+
+        let perDay = amount;
+        let periodLabel = '';
+        if (period === 'week') { perDay = amount / 7; periodLabel = 'в неделю'; }
+        else if (period === 'month') { perDay = amount / 30; periodLabel = 'в месяц'; }
+        else if (period === 'year') { perDay = amount / 365; periodLabel = 'в год'; }
+        else { periodLabel = 'в день'; }
+
+        const perMonth = perDay * 30;
+        const perYear = perDay * 365;
+        const per5Years = perYear * 5;
+
+        let resultHTML = `
+            <div class="calc-result-main">${formatNumber(perYear)} ₽</div>
+            <div class="calc-result-label">Накопите за год, если откладываете ${formatNumber(amount)} ₽ ${periodLabel}</div>
+            <div class="calc-result-details">
+                <div class="calc-detail">
+                    <div class="calc-detail-value">${formatNumber(perMonth)} ₽</div>
+                    <div class="calc-detail-label">За месяц</div>
+                </div>
+                <div class="calc-detail">
+                    <div class="calc-detail-value">${formatNumber(per5Years)} ₽</div>
+                    <div class="calc-detail-label">За 5 лет</div>
+                </div>
+                <div class="calc-detail">
+                    <div class="calc-detail-value">${formatNumber(perYear * 10)} ₽</div>
+                    <div class="calc-detail-label">За 10 лет</div>
+                </div>
+            </div>
+        `;
+
+        if (goalSum > 0) {
+            const daysToGoal = Math.ceil(goalSum / perDay);
+            const dateToGoal = new Date(Date.now() + daysToGoal * DAY_MS);
+            const dateStr = dateToGoal.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+            resultHTML += `
+                <div class="calc-result-details" style="margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.1);">
+                    <div class="calc-detail">
+                        <div class="calc-detail-value">${pluralizeTime(daysToGoal)}</div>
+                        <div class="calc-detail-label">До цели ${formatNumber(goalSum)} ₽</div>
+                    </div>
+                    <div class="calc-detail">
+                        <div class="calc-detail-value">${dateStr}</div>
+                        <div class="calc-detail-label">Примерная дата</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        resultHTML += `
+            <button class="btn-save-goal" data-goal-type="money" 
+                data-title="Накопления: ${formatNumber(perYear)} ₽ за год"
+                data-info="Откладываю ${formatNumber(amount)} ₽ ${periodLabel}">
+                <i class="fas fa-flag"></i> Зафиксировать как цель
+            </button>
+        `;
+
+        const resultEl = $('moneyResult');
+        resultEl.innerHTML = resultHTML;
+        resultEl.hidden = false;
+
+        resultEl.querySelector('.btn-save-goal').addEventListener('click', (e) => {
+            addGoal({
+                type: 'money',
+                title: e.target.dataset.title,
+                info: e.target.dataset.info,
+                totalDays: goalSum > 0 ? Math.ceil(goalSum / perDay) : 365
+            });
+        });
+    }
+
+    function calcBook() {
+        const total = Number($('bookTotal').value) || 0;
+        const amount = Number($('bookAmount').value) || 0;
+        const period = $('bookPeriod').value;
+
+        if (total <= 0 || amount <= 0) {
+            showToast('Заполните все поля', 'fa-exclamation-triangle');
+            return;
+        }
+
+        let perDay = amount;
+        let periodLabel = '';
+        if (period === 'week') { perDay = amount / 7; periodLabel = 'стр. в неделю'; }
+        else if (period === 'month') { perDay = amount / 30; periodLabel = 'стр. в месяц'; }
+        else { periodLabel = 'стр. в день'; }
+
+        const daysToFinish = Math.ceil(total / perDay);
+        const dateToFinish = new Date(Date.now() + daysToFinish * DAY_MS);
+        const dateStr = dateToFinish.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        const booksPerYear = (perDay * 365 / total).toFixed(1);
+
+        const resultEl = $('bookResult');
+        resultEl.innerHTML = `
+            <div class="calc-result-main">${pluralizeTime(daysToFinish)}</div>
+            <div class="calc-result-label">Прочитаете книгу на ${total} страниц</div>
+            <div class="calc-result-details">
+                <div class="calc-detail">
+                    <div class="calc-detail-value">${dateStr}</div>
+                    <div class="calc-detail-label">Примерная дата финиша</div>
+                </div>
+                <div class="calc-detail">
+                    <div class="calc-detail-value">${booksPerYear}</div>
+                    <div class="calc-detail-label">Книг за год</div>
+                </div>
+                <div class="calc-detail">
+                    <div class="calc-detail-value">${Math.round(perDay * 365)}</div>
+                    <div class="calc-detail-label">Страниц за год</div>
+                </div>
+            </div>
+            <button class="btn-save-goal" data-goal-type="book"
+                data-title="Чтение: книга за ${pluralizeTime(daysToFinish)}"
+                data-info="Читаю ${amount} ${periodLabel}">
+                <i class="fas fa-flag"></i> Зафиксировать как цель
+            </button>
+        `;
+        resultEl.hidden = false;
+
+        resultEl.querySelector('.btn-save-goal').addEventListener('click', (e) => {
+            addGoal({
+                type: 'book',
+                title: e.target.dataset.title,
+                info: e.target.dataset.info,
+                totalDays: daysToFinish
+            });
+        });
+    }
+
+    /* ========== УПРАВЛЕНИЕ ЦЕЛЯМИ ========== */
+
+    function addGoal(data) {
+        const goal = {
+            id: generateId(),
+            type: data.type,
+            title: data.title,
+            info: data.info,
+            totalDays: data.totalDays,
+            createdAt: Date.now(),
+            startDate: Date.now()
+        };
+        goals.unshift(goal);
+        saveGoals();
+        renderGoals();
+        showToast('Цель зафиксирована');
+
+        if (isNotificationSupported() && Notification.permission === 'granted') {
+            try {
+                new Notification('🎯 Новая цель', {
+                    body: data.title,
+                    icon: 'icons/web-app-manifest-192x192.png'
+                });
+            } catch (e) {}
+        }
+    }
+
+    function deleteGoal(id) {
+        if (!confirm('Удалить цель?')) return;
+        goals = goals.filter(g => g.id !== id);
+        saveGoals();
+        renderGoals();
+        showToast('Цель удалена', 'fa-trash-alt');
     }
 
     /* ========== СТАТИСТИКА ========== */
@@ -1020,7 +1280,6 @@
     }
 
     function saveModal() {
-        // Если открыт режим заказа — идём в свою ветку
         if (editingOrder || $('ordWeek')) {
             saveOrderModal();
             return;
@@ -1067,11 +1326,12 @@
 
     function exportData() {
         const data = {
-            version: 4,
+            version: 6,
             exportedAt: new Date().toISOString(),
             tasks,
             habits,
-            orders
+            orders,
+            goals
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -1096,21 +1356,25 @@
                 const importTasks = Array.isArray(data.tasks) ? data.tasks : null;
                 const importHabits = Array.isArray(data.habits) ? data.habits : null;
                 const importOrders = Array.isArray(data.orders) ? data.orders : null;
+                const importGoals = Array.isArray(data.goals) ? data.goals : null;
 
-                if (!importTasks && !importHabits && !importOrders) throw new Error('Нет данных');
+                if (!importTasks && !importHabits && !importOrders && !importGoals) throw new Error('Нет данных');
 
                 if (!confirm('Импортировать данные? Текущие данные будут заменены.')) return;
 
                 if (importTasks) tasks = importTasks;
                 if (importHabits) habits = importHabits;
                 if (importOrders) orders = importOrders;
+                if (importGoals) goals = importGoals;
 
                 saveTasks();
                 saveHabits();
                 saveOrders();
+                saveGoals();
                 renderTasks();
                 renderHabits();
                 renderOrders();
+                renderGoals();
                 renderStats();
                 showToast('Данные импортированы');
             } catch (err) {
@@ -1205,7 +1469,6 @@
     habitListEl.addEventListener('click', handleHabitClickForEdit);
     habitListEl.addEventListener('dblclick', handleHabitDblClick);
 
-    // Делегирование для заказов (таблица + карточки)
     [ordersBodyEl, ordersCardsEl].forEach(el => {
         el.addEventListener('click', (e) => {
             const target = e.target.closest('[data-action]');
@@ -1214,6 +1477,11 @@
             if (action === 'edit-order') openOrderModal(id);
             else if (action === 'delete-order') deleteOrder(id);
         });
+    });
+
+    goalsListEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="delete-goal"]');
+        if (btn) deleteGoal(btn.dataset.id);
     });
 
     [taskListEl, habitListEl].forEach((el) => {
@@ -1248,6 +1516,20 @@
         e.target.value = '';
     });
 
+    /* ========== КАЛЬКУЛЯТОРЫ ========== */
+
+    document.querySelectorAll('.calc-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.calc-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.calc-form').forEach(f => f.classList.remove('active'));
+            tab.classList.add('active');
+            $('calc-' + tab.dataset.calc).classList.add('active');
+        });
+    });
+
+    $('calcMoneyBtn').addEventListener('click', calcMoney);
+    $('calcBookBtn').addEventListener('click', calcBook);
+
     /* ========== ФИЛЬТРЫ ========== */
 
     document.querySelectorAll('.filter-btn').forEach((btn) => {
@@ -1276,6 +1558,7 @@
 
             if (tab.dataset.tab === 'stats') renderStats();
             if (tab.dataset.tab === 'orders') renderOrders();
+            if (tab.dataset.tab === 'goals') renderGoals();
         });
     });
 
@@ -1293,7 +1576,7 @@
         if (e.key === 'Escape' && !modalOverlay.hidden) closeModal();
     });
 
-    /* ========== УВЕДОМЛЕНИЯ — UI ========== */
+    /* ========== УВЕДОМЛЕНИЯ ========== */
 
     notifyBadge.addEventListener('click', requestNotificationPermission);
 
@@ -1311,17 +1594,31 @@
         } else if (e.key === ORDERS_KEY) {
             loadFromStorage();
             renderOrders();
+        } else if (e.key === GOALS_KEY) {
+            loadFromStorage();
+            renderGoals();
         }
     });
 
     /* ========== PWA ========== */
 
-    if ('serviceWorker' in navigator) {
+    const isLocalhost = location.hostname === 'localhost' 
+                     || location.hostname === '127.0.0.1'
+                     || location.hostname === '';
+
+    if ('serviceWorker' in navigator && !isLocalhost) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js')
                 .then((reg) => console.log('SW registered:', reg.scope))
                 .catch((err) => console.warn('SW registration failed:', err));
         });
+    } else if (isLocalhost) {
+        console.log('%c⚙ SW отключён на localhost', 'color: #8e9bb8;');
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                regs.forEach(reg => reg.unregister());
+            });
+        }
     }
 
     let deferredPrompt = null;
@@ -1358,6 +1655,7 @@
         if (!document.hidden) {
             processRepeats();
             checkDeadlines();
+            renderGoals();
         }
     });
 
@@ -1369,6 +1667,7 @@
         renderTasks();
         renderHabits();
         renderOrders();
+        renderGoals();
         renderStats();
 
         const today = new Date().toISOString().slice(0, 10);
@@ -1380,8 +1679,8 @@
 
         taskInput.focus();
 
-        console.log('%c⚡ TaskFlow Premium v4', 'font-size: 16px; font-weight: bold; color: #6d8cff;');
-        console.log('%c• Планировщик • Заказы • Статистика', 'color: #8e9bb8;');
+        console.log('%c⚡ TaskFlow Premium v6', 'font-size: 16px; font-weight: bold; color: #6d8cff;');
+        console.log('%c• Планировщик • Заказы • Цели • Статистика', 'color: #8e9bb8;');
         console.log('%c• Уведомления • Повторы • CSV • PWA', 'color: #8e9bb8;');
     }
 
