@@ -1,3 +1,11 @@
+/* ============================================
+   TASKFLOW · PREMIUM APP LOGIC (v7)
+   + Словарь с игрой-карточками
+   + Трекер заказов
+   + Калькуляторы целей
+   + Уведомления, повторы, PWA
+   ============================================ */
+
 (function () {
     'use strict';
 
@@ -6,22 +14,53 @@
     const HABITS_KEY = 'taskflow_habits_v1';
     const ORDERS_KEY = 'taskflow_orders_v1';
     const GOALS_KEY = 'taskflow_goals_v1';
+    const DICT_KEY = 'taskflow_dictionary_v1';
+    const WOD_KEY = 'taskflow_wordoftheday_v1';
+    const STUDY_KEY = 'taskflow_studystats_v1';
     const NOTIF_KEY = 'taskflow_notifications_enabled';
     const NOTIFIED_KEY = 'taskflow_notified_ids';
     const DAY_MS = 86400000;
     const WEEK_DAYS = 7;
     const CHECK_INTERVAL = 60000;
 
+    const CATEGORIES = [
+        { id: 'psychology', name: 'Психология', icon: 'fa-brain' },
+        { id: 'business',   name: 'Бизнес',     icon: 'fa-briefcase' },
+        { id: 'it',         name: 'IT',          icon: 'fa-code' },
+        { id: 'science',    name: 'Наука',       icon: 'fa-flask' },
+        { id: 'philosophy', name: 'Философия',   icon: 'fa-scroll' },
+        { id: 'medicine',   name: 'Медицина',    icon: 'fa-heart-pulse' },
+        { id: 'art',        name: 'Искусство',   icon: 'fa-palette' },
+        { id: 'other',      name: 'Другое',      icon: 'fa-bookmark' }
+    ];
+
     /* ========== СОСТОЯНИЕ ========== */
     let tasks = [];
     let habits = [];
     let orders = [];
     let goals = [];
+    let dict = [];
+    let wod = { date: null, wordId: null };
+    let studyStats = { streak: 0, lastStudy: null };
     let currentFilter = 'all';
+    let dictFilter = 'all';
+    let dictCategory = 'all';
+    let dictSearchQuery = '';
     let editing = null;
     let editingOrder = null;
+    let editingWord = null;
     let notifiedIds = new Set();
     let checkTimer = null;
+
+    // Состояние режима изучения
+    let study = {
+        active: false,
+        queue: [],
+        index: 0,
+        knowCount: 0,
+        reviewCount: 0,
+        originalTotal: 0
+    };
 
     /* ========== DOM ========== */
     const $ = (id) => document.getElementById(id);
@@ -48,6 +87,40 @@
 
     const goalsListEl = $('goalsList');
     const goalsCountEl = $('goalsCount');
+
+    // Словарь
+    const dictListEl = $('dictList');
+    const dictCountEl = $('dictCount');
+    const dictSearchEl = $('dictSearch');
+    const dictCategoriesEl = $('dictCategories');
+    const addWordBtn = $('addWordBtn');
+    const exportDictCsvBtn = $('exportDictCsvBtn');
+    const studyStartBtn = $('studyStartBtn');
+
+    // Слово дня
+    const wordOfDayEl = $('wordOfDay');
+    const wodWordEl = $('wodWord');
+    const wodMeaningEl = $('wodMeaning');
+    const wodToggleEl = $('wodToggle');
+    const wodMetaEl = $('wodMeta');
+
+    // Режим изучения
+    const studyModeEl = $('studyMode');
+    const dictionaryMainEl = $('dictionaryMain');
+    const studyCounterEl = $('studyCounter');
+    const studyProgressFillEl = $('studyProgressFill');
+    const studyCategoryEl = $('studyCategory');
+    const studyWordEl = $('studyWord');
+    const studyMeaningEl = $('studyMeaning');
+    const showMeaningBtn = $('showMeaningBtn');
+    const studyActionsEl = $('studyActions');
+    const knowBtn = $('knowBtn');
+    const reviewBtn = $('reviewBtn');
+    const studyExitBtn = $('studyExitBtn');
+    const studyFinishedEl = $('studyFinished');
+    const studyFinishedStatsEl = $('studyFinishedStats');
+    const studyRestartBtn = $('studyRestartBtn');
+    const studyCardEl = $('studyCard');
 
     const resetTasksBtn = $('resetTasksBtn');
     const resetHabitsBtn = $('resetHabitsBtn');
@@ -153,6 +226,14 @@
         return `≈ ${years} ${pluralize(Math.round(years), 'год', 'года', 'лет')}`;
     }
 
+    function todayStr() {
+        return new Date().toISOString().slice(0, 10);
+    }
+
+    function getCategoryInfo(id) {
+        return CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
+    }
+
     /* ========== LOCALSTORAGE ========== */
 
     function loadFromStorage() {
@@ -201,49 +282,90 @@
                 goals = [];
             }
 
+            const savedDict = localStorage.getItem(DICT_KEY);
+            if (savedDict) {
+                const parsed = JSON.parse(savedDict);
+                dict = Array.isArray(parsed) ? parsed : [];
+            } else {
+                dict = [
+                    {
+                        id: generateId(),
+                        word: 'Рефлексия',
+                        meaning: 'Способность человека осмыслять свои мысли, эмоции, действия и результаты, чтобы лучше понимать себя и корректировать поведение.',
+                        example: 'После рефлексии я понял, что зря потратил неделю на бесполезные задачи.',
+                        category: 'psychology',
+                        favorite: true,
+                        know: false,
+                        review: false,
+                        createdAt: Date.now()
+                    },
+                    {
+                        id: generateId(),
+                        word: 'Синергия',
+                        meaning: 'Эффект, при котором результат взаимодействия нескольких элементов больше, чем простая сумма их отдельных результатов. 1 + 1 = 3.',
+                        example: 'Командная работа дала синергию — мы сделали за неделю то, что по отдельности делали бы месяц.',
+                        category: 'business',
+                        favorite: false,
+                        know: false,
+                        review: false,
+                        createdAt: Date.now() - DAY_MS
+                    }
+                ];
+            }
+
+            const savedWod = localStorage.getItem(WOD_KEY);
+            if (savedWod) {
+                try { wod = JSON.parse(savedWod); } catch (e) { wod = { date: null, wordId: null }; }
+            }
+
+            const savedStudy = localStorage.getItem(STUDY_KEY);
+            if (savedStudy) {
+                try { studyStats = JSON.parse(savedStudy); } catch (e) { studyStats = { streak: 0, lastStudy: null }; }
+            }
+
             const savedNotified = localStorage.getItem(NOTIFIED_KEY);
             if (savedNotified) {
                 notifiedIds = new Set(JSON.parse(savedNotified));
             }
         } catch (e) {
             console.error('Ошибка загрузки:', e);
-            tasks = [];
-            habits = [];
-            orders = [];
-            goals = [];
+            tasks = []; habits = []; orders = []; goals = []; dict = [];
         }
     }
 
     function saveTasks() {
         try { localStorage.setItem(TASKS_KEY, JSON.stringify(tasks)); }
-        catch (e) {
-            console.error('Ошибка сохранения задач:', e);
-            showToast('Хранилище заполнено', 'fa-exclamation-triangle');
-        }
+        catch (e) { console.error(e); showToast('Хранилище заполнено', 'fa-exclamation-triangle'); }
     }
 
     function saveHabits() {
         try { localStorage.setItem(HABITS_KEY, JSON.stringify(habits)); }
-        catch (e) {
-            console.error('Ошибка сохранения привычек:', e);
-            showToast('Хранилище заполнено', 'fa-exclamation-triangle');
-        }
+        catch (e) { console.error(e); showToast('Хранилище заполнено', 'fa-exclamation-triangle'); }
     }
 
     function saveOrders() {
         try { localStorage.setItem(ORDERS_KEY, JSON.stringify(orders)); }
-        catch (e) {
-            console.error('Ошибка сохранения заказов:', e);
-            showToast('Хранилище заполнено', 'fa-exclamation-triangle');
-        }
+        catch (e) { console.error(e); showToast('Хранилище заполнено', 'fa-exclamation-triangle'); }
     }
 
     function saveGoals() {
         try { localStorage.setItem(GOALS_KEY, JSON.stringify(goals)); }
-        catch (e) {
-            console.error('Ошибка сохранения целей:', e);
-            showToast('Хранилище заполнено', 'fa-exclamation-triangle');
-        }
+        catch (e) { console.error(e); showToast('Хранилище заполнено', 'fa-exclamation-triangle'); }
+    }
+
+    function saveDict() {
+        try { localStorage.setItem(DICT_KEY, JSON.stringify(dict)); }
+        catch (e) { console.error(e); showToast('Хранилище заполнено', 'fa-exclamation-triangle'); }
+    }
+
+    function saveWod() {
+        try { localStorage.setItem(WOD_KEY, JSON.stringify(wod)); }
+        catch (e) {}
+    }
+
+    function saveStudyStats() {
+        try { localStorage.setItem(STUDY_KEY, JSON.stringify(studyStats)); }
+        catch (e) {}
     }
 
     function saveNotified() {
@@ -321,9 +443,8 @@
                 showToast('Уведомления включены');
                 try {
                     new Notification('TaskFlow', {
-                        body: 'Уведомления активированы! Мы напомним о задачах с дедлайном.',
-                        icon: 'icons/web-app-manifest-192x192.png',
-                        badge: 'icons/web-app-manifest-192x192.png'
+                        body: 'Уведомления активированы!',
+                        icon: 'icons/web-app-manifest-192x192.png'
                     });
                 } catch (e) {}
                 checkDeadlines();
@@ -335,7 +456,6 @@
             }
         } catch (e) {
             console.error('Notification error:', e);
-            showToast('Ошибка запроса разрешения', 'fa-exclamation-triangle');
             return false;
         }
     }
@@ -345,28 +465,19 @@
             notifyBadge.hidden = true;
             return;
         }
-        const perm = getNotificationPermission();
-        notifyBadge.hidden = (perm === 'granted');
+        notifyBadge.hidden = (getNotificationPermission() === 'granted');
     }
 
     function sendNotification(title, options = {}) {
         if (!isNotificationSupported()) return;
         if (Notification.permission !== 'granted') return;
-
         try {
             const notif = new Notification(title, {
                 icon: 'icons/web-app-manifest-192x192.png',
-                badge: 'icons/web-app-manifest-192x192.png',
                 ...options
             });
-
-            notif.onclick = () => {
-                window.focus();
-                notif.close();
-            };
-        } catch (e) {
-            console.warn('Notification failed:', e);
-        }
+            notif.onclick = () => { window.focus(); notif.close(); };
+        } catch (e) {}
     }
 
     function checkDeadlines() {
@@ -382,26 +493,16 @@
 
             const dl = new Date(task.deadline).getTime();
             const notifKey = `${task.id}-${new Date(dl).toDateString()}`;
-
             const isToday = dl >= todayStart.getTime() && dl < todayEnd;
             const isOverdue = dl < todayStart.getTime();
 
             if ((isToday || isOverdue) && !notifiedIds.has(notifKey)) {
-                const timeStr = new Date(dl).toLocaleDateString('ru-RU', {
-                    day: 'numeric', month: 'long'
-                });
-
+                const timeStr = new Date(dl).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
                 const title = isOverdue ? '⚠️ Задача просрочена' : '📌 Напоминание';
                 const body = isOverdue
                     ? `"${task.text}" — дедлайн был ${timeStr}`
                     : `"${task.text}" — дедлайн сегодня`;
-
-                sendNotification(title, {
-                    body,
-                    tag: task.id,
-                    requireInteraction: true
-                });
-
+                sendNotification(title, { body, tag: task.id, requireInteraction: true });
                 notifiedIds.add(notifKey);
             }
 
@@ -471,17 +572,13 @@
             return `
                 <div class="item-card ${overdue ? 'overdue' : ''}" data-id="${task.id}">
                     <div class="item-check ${task.completed ? 'completed' : ''}"
-                         data-action="toggle-task"
-                         data-id="${task.id}"
-                         role="checkbox"
-                         aria-checked="${task.completed}"
-                         tabindex="0">
+                         data-action="toggle-task" data-id="${task.id}"
+                         role="checkbox" aria-checked="${task.completed}" tabindex="0">
                         <i class="fas fa-check"></i>
                     </div>
                     <div class="item-content">
                         <div class="item-text ${task.completed ? 'completed-text' : ''}"
-                             data-action="edit-task"
-                             data-id="${task.id}"
+                             data-action="edit-task" data-id="${task.id}"
                              title="Двойной клик — редактировать">
                             ${escapeHtml(task.text)}
                         </div>
@@ -528,17 +625,13 @@
             return `
                 <div class="item-card" data-id="${habit.id}">
                     <div class="item-check ${habit.streak > 0 ? 'completed' : ''}"
-                         data-action="increment-habit"
-                         data-id="${habit.id}"
+                         data-action="increment-habit" data-id="${habit.id}"
                          title="${doneToday ? 'Уже отмечено сегодня' : 'Отметить выполнение'}"
-                         role="button"
-                         tabindex="0">
+                         role="button" tabindex="0">
                         <span class="habit-progress">${habit.streak}</span>
                     </div>
                     <div class="item-content">
-                        <div class="item-text"
-                             data-action="edit-habit"
-                             data-id="${habit.id}"
+                        <div class="item-text" data-action="edit-habit" data-id="${habit.id}"
                              title="Двойной клик — редактировать">
                             ${escapeHtml(habit.text)}
                         </div>
@@ -714,10 +807,7 @@
             return;
         }
 
-        const icons = {
-            money: 'fa-coins',
-            book: 'fa-book'
-        };
+        const icons = { money: 'fa-coins', book: 'fa-book' };
 
         goalsListEl.innerHTML = goals.map(g => {
             const daysPassed = Math.floor((Date.now() - g.startDate) / DAY_MS);
@@ -750,6 +840,478 @@
         }).join('');
     }
 
+    /* ========== СЛОВАРЬ: рендер категорий ========== */
+
+    function renderDictCategories() {
+        const counts = {};
+        dict.forEach(w => {
+            counts[w.category] = (counts[w.category] || 0) + 1;
+        });
+
+        let html = `
+            <button class="dict-cat-btn ${dictCategory === 'all' ? 'active' : ''}" data-cat="all">
+                <i class="fas fa-layer-group"></i> Все (${dict.length})
+            </button>
+        `;
+
+        CATEGORIES.forEach(cat => {
+            const count = counts[cat.id] || 0;
+            if (count === 0 && dictCategory !== cat.id) return; // скрываем пустые
+            html += `
+                <button class="dict-cat-btn ${dictCategory === cat.id ? 'active' : ''}" data-cat="${cat.id}">
+                    <i class="fas ${cat.icon}"></i> ${cat.name} (${count})
+                </button>
+            `;
+        });
+
+        dictCategoriesEl.innerHTML = html;
+    }
+
+    /* ========== СЛОВАРЬ: рендер списка ========== */
+
+    function getFilteredDict() {
+        let list = [...dict];
+
+        if (dictFilter === 'favorite') list = list.filter(w => w.favorite);
+        else if (dictFilter === 'review') list = list.filter(w => w.review);
+
+        if (dictCategory !== 'all') list = list.filter(w => w.category === dictCategory);
+
+        if (dictSearchQuery) {
+            const q = dictSearchQuery.toLowerCase();
+            list = list.filter(w =>
+                (w.word || '').toLowerCase().includes(q) ||
+                (w.meaning || '').toLowerCase().includes(q)
+            );
+        }
+
+        return list.sort((a, b) => b.createdAt - a.createdAt);
+    }
+
+    function truncateText(text, maxLen = 140) {
+        if (!text) return '';
+        if (text.length <= maxLen) return text;
+        return text.slice(0, maxLen).trim() + '...';
+    }
+
+    function renderDict() {
+        dictCountEl.textContent = `${dict.length} ${pluralize(dict.length, 'слово', 'слова', 'слов')}`;
+        renderDictCategories();
+
+        const filtered = getFilteredDict();
+
+        if (filtered.length === 0) {
+            dictListEl.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-book-open"></i>
+                    <span>${dict.length === 0 ? 'Словарь пуст. Добавьте первое слово!' : 'Ничего не найдено'}</span>
+                </div>
+            `;
+            return;
+        }
+
+        dictListEl.innerHTML = filtered.map(w => {
+            const cat = getCategoryInfo(w.category);
+            const needsTruncate = (w.meaning || '').length > 140;
+            const displayMeaning = needsTruncate ? truncateText(w.meaning) : w.meaning;
+
+            return `
+                <div class="dict-card" data-id="${w.id}">
+                    <div class="dict-card-header">
+                        <div class="dict-card-title">
+                            <span class="dict-card-word">${escapeHtml(w.word)}</span>
+                            <button class="dict-card-star ${w.favorite ? 'active' : ''}"
+                                    data-action="toggle-favorite" data-id="${w.id}"
+                                    aria-label="Избранное">
+                                <i class="fas fa-star"></i>
+                            </button>
+                        </div>
+                        <div class="dict-card-actions">
+                            <button class="icon-btn" data-action="edit-word" data-id="${w.id}" aria-label="Редактировать">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="icon-btn delete" data-action="delete-word" data-id="${w.id}" aria-label="Удалить">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="dict-card-meaning" data-meaning-id="${w.id}">
+                        ${escapeHtml(displayMeaning)}
+                    </div>
+
+                    ${needsTruncate ? `
+                        <button class="btn-show-more" data-action="toggle-meaning" data-id="${w.id}">
+                            <span>Показать полностью</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    ` : ''}
+
+                    ${w.example ? `
+                        <div class="dict-card-example">${escapeHtml(w.example)}</div>
+                    ` : ''}
+
+                    <div class="dict-card-tags">
+                        <span class="dict-card-category">
+                            <i class="fas ${cat.icon}"></i> ${cat.name}
+                        </span>
+                        ${w.review ? `<span class="dict-card-tag"><i class="fas fa-redo"></i> Повторить</span>` : ''}
+                    </div>
+
+                    <div class="dict-card-meta">
+                        <span><i class="far fa-clock"></i> ${formatDate(w.createdAt)}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /* ========== СЛОВО ДНЯ ========== */
+
+    function updateWordOfDay() {
+        if (dict.length === 0) {
+            wordOfDayEl.hidden = true;
+            return;
+        }
+
+        const today = todayStr();
+
+        // Если сегодня ещё не выбирали или слово удалили — выбираем новое
+        let word = wod.wordId ? dict.find(w => w.id === wod.wordId) : null;
+        const needNew = wod.date !== today || !word;
+
+        if (needNew) {
+            // Выбираем случайное
+            const randomIndex = Math.floor(Math.random() * dict.length);
+            word = dict[randomIndex];
+            wod = { date: today, wordId: word.id };
+            saveWod();
+        }
+
+        wordOfDayEl.hidden = false;
+        wodWordEl.textContent = word.word;
+        wodMeaningEl.textContent = word.meaning;
+        wodMeaningEl.classList.remove('expanded');
+
+        const cat = getCategoryInfo(word.category);
+        wodMetaEl.innerHTML = `
+            <span><i class="fas ${cat.icon}"></i> ${cat.name}</span>
+            <span><i class="far fa-clock"></i> ${formatDate(word.createdAt)}</span>
+        `;
+
+        // Показываем/скрываем кнопку "Показать полностью"
+        const needsToggle = (word.meaning || '').length > 140;
+        wodToggleEl.style.display = needsToggle ? 'inline-flex' : 'none';
+        wodToggleEl.classList.remove('expanded');
+        wodToggleEl.querySelector('span').textContent = 'Показать полностью';
+
+        // Если нужно — обрезаем
+        if (needsToggle) {
+            wodMeaningEl.textContent = truncateText(word.meaning);
+        } else {
+            wodMeaningEl.textContent = word.meaning;
+        }
+    }
+
+    /* ========== МОДАЛКА СЛОВА ========== */
+
+    function openWordModal(id = null) {
+        editingWord = id;
+        const word = id ? dict.find(w => w.id === id) : null;
+
+        modalTitle.textContent = id ? 'Редактировать слово' : 'Новое слово';
+        modalInput.style.display = 'none';
+        modalInput.value = '';
+
+        const categoriesOptions = CATEGORIES.map(c =>
+            `<option value="${c.id}" ${word && word.category === c.id ? 'selected' : ''}>${c.name}</option>`
+        ).join('');
+
+        modalExtra.innerHTML = `
+            <label class="modal-label">Слово *</label>
+            <input type="text" id="wWord" class="modal-input" placeholder="Например: Рефлексия" value="${word ? escapeHtml(word.word) : ''}">
+
+            <label class="modal-label">Значение *</label>
+            <textarea id="wMeaning" class="modal-input modal-textarea" rows="4" placeholder="Полное определение или объяснение...">${word ? escapeHtml(word.meaning) : ''}</textarea>
+
+            <label class="modal-label">Пример использования</label>
+            <textarea id="wExample" class="modal-input modal-textarea" rows="2" placeholder="Как это слово используется в контексте...">${word ? escapeHtml(word.example || '') : ''}</textarea>
+
+            <label class="modal-label">Категория</label>
+            <select id="wCategory" class="modal-input">
+                ${categoriesOptions}
+            </select>
+
+            <label class="modal-label" style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; margin-top:0.5rem;">
+                <input type="checkbox" id="wFavorite" ${word && word.favorite ? 'checked' : ''} style="width:auto; margin:0;">
+                <span>⭐ Добавить в избранное</span>
+            </label>
+        `;
+
+        modalOverlay.hidden = false;
+        setTimeout(() => $('wWord').focus(), 50);
+    }
+
+    function saveWordModal() {
+        const word = $('wWord').value.trim();
+        const meaning = $('wMeaning').value.trim();
+        const example = $('wExample').value.trim();
+        const category = $('wCategory').value;
+        const favorite = $('wFavorite').checked;
+
+        if (!word) {
+            showToast('Введите слово', 'fa-exclamation-triangle');
+            return;
+        }
+        if (!meaning) {
+            showToast('Введите значение', 'fa-exclamation-triangle');
+            return;
+        }
+
+        const data = { word, meaning, example, category, favorite };
+
+        if (editingWord) {
+            const w = dict.find(x => x.id === editingWord);
+            if (w) Object.assign(w, data);
+            showToast('Слово обновлено');
+        } else {
+            dict.unshift({
+                id: generateId(),
+                ...data,
+                know: false,
+                review: false,
+                createdAt: Date.now()
+            });
+            showToast('Слово добавлено');
+        }
+
+        saveDict();
+        renderDict();
+        updateWordOfDay();
+        renderStats();
+        editingWord = null;
+        closeModal();
+    }
+
+    function deleteWord(id) {
+        if (!confirm('Удалить слово?')) return;
+        dict = dict.filter(w => w.id !== id);
+        saveDict();
+        renderDict();
+        updateWordOfDay();
+        renderStats();
+        showToast('Слово удалено', 'fa-trash-alt');
+    }
+
+    function toggleFavorite(id) {
+        const w = dict.find(x => x.id === id);
+        if (!w) return;
+        w.favorite = !w.favorite;
+        saveDict();
+        renderDict();
+    }
+
+    function toggleMeaningExpand(id) {
+        const meaningEl = document.querySelector(`[data-meaning-id="${id}"]`);
+        const btn = document.querySelector(`[data-action="toggle-meaning"][data-id="${id}"]`);
+        const w = dict.find(x => x.id === id);
+        if (!meaningEl || !w) return;
+
+        const isExpanded = meaningEl.classList.toggle('expanded');
+
+        if (isExpanded) {
+            meaningEl.textContent = w.meaning;
+            if (btn) {
+                btn.classList.add('expanded');
+                btn.querySelector('span').textContent = 'Свернуть';
+            }
+        } else {
+            meaningEl.textContent = truncateText(w.meaning);
+            if (btn) {
+                btn.classList.remove('expanded');
+                btn.querySelector('span').textContent = 'Показать полностью';
+            }
+        }
+    }
+
+    /* ========== ЭКСПОРТ СЛОВАРЯ В CSV ========== */
+
+    function exportDictCsv() {
+        if (dict.length === 0) {
+            showToast('Словарь пуст', 'fa-exclamation-triangle');
+            return;
+        }
+
+        const headers = ['Слово', 'Значение', 'Пример', 'Категория', 'Избранное', 'Дата'];
+        const rows = dict.map(w => {
+            const cat = getCategoryInfo(w.category);
+            return [
+                w.word || '',
+                w.meaning || '',
+                w.example || '',
+                cat.name,
+                w.favorite ? 'да' : 'нет',
+                new Date(w.createdAt).toLocaleDateString('ru-RU')
+            ];
+        });
+
+        const BOM = '\uFEFF';
+        const csv = BOM + [headers, ...rows]
+            .map(r => r.map(cell => {
+                const s = String(cell);
+                return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+            }).join(';'))
+            .join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const date = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `taskflow-dictionary-${date}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('CSV экспортирован');
+    }
+
+    /* ========== РЕЖИМ ИЗУЧЕНИЯ ========== */
+
+    function startStudy() {
+        // Формируем очередь: сначала слова с review=true, потом остальные
+        const reviewWords = dict.filter(w => w.review);
+        const otherWords = dict.filter(w => !w.review && !w.know);
+        const knowWords = dict.filter(w => w.know && !w.review);
+
+        // Очередь: приоритет — review, потом обычные, потом уже знакомые (для закрепления)
+        const queue = [...reviewWords, ...otherWords, ...knowWords];
+
+        if (queue.length === 0) {
+            showToast('Нет слов для изучения', 'fa-exclamation-triangle');
+            return;
+        }
+
+        study = {
+            active: true,
+            queue: queue.map(w => w.id),
+            index: 0,
+            knowCount: 0,
+            reviewCount: 0,
+            originalTotal: queue.length
+        };
+
+        // Показываем режим изучения
+        dictionaryMainEl.style.display = 'none';
+        studyModeEl.hidden = false;
+        studyFinishedEl.hidden = true;
+        studyCardEl.hidden = false;
+        studyActionsEl.hidden = true;
+        studyMeaningEl.hidden = true;
+        showMeaningBtn.hidden = false;
+
+        showStudyCard();
+    }
+
+    function showStudyCard() {
+        if (study.index >= study.queue.length) {
+            finishStudy();
+            return;
+        }
+
+        const w = dict.find(x => x.id === study.queue[study.index]);
+        if (!w) {
+            // Слово удалили — пропускаем
+            study.index++;
+            showStudyCard();
+            return;
+        }
+
+        const cat = getCategoryInfo(w.category);
+
+        studyCategoryEl.textContent = cat.name;
+        studyWordEl.textContent = w.word;
+        studyMeaningEl.textContent = w.meaning;
+        studyMeaningEl.hidden = true;
+        studyActionsEl.hidden = true;
+        showMeaningBtn.hidden = false;
+
+        studyCounterEl.textContent = `${study.index + 1} / ${study.queue.length}`;
+
+        const progress = ((study.index) / study.queue.length) * 100;
+        studyProgressFillEl.style.width = progress + '%';
+    }
+
+    function revealMeaning() {
+        studyMeaningEl.hidden = false;
+        studyActionsEl.hidden = false;
+        showMeaningBtn.hidden = true;
+    }
+
+    function markKnow() {
+        const w = dict.find(x => x.id === study.queue[study.index]);
+        if (w) {
+            w.know = true;
+            w.review = false;
+        }
+        study.knowCount++;
+        study.index++;
+        saveDict();
+        showStudyCard();
+    }
+
+    function markReview() {
+        const w = dict.find(x => x.id === study.queue[study.index]);
+        if (w) {
+            w.review = true;
+            w.know = false;
+        }
+        study.reviewCount++;
+        study.index++;
+        saveDict();
+        showStudyCard();
+    }
+
+    function finishStudy() {
+        studyCardEl.hidden = true;
+        studyActionsEl.hidden = true;
+        studyFinishedEl.hidden = false;
+        studyProgressFillEl.style.width = '100%';
+
+        // Обновляем стрик изучения
+        const today = todayStr();
+        const lastDate = studyStats.lastStudy ? new Date(studyStats.lastStudy).toISOString().slice(0, 10) : null;
+        const yesterday = new Date(Date.now() - DAY_MS).toISOString().slice(0, 10);
+
+        if (lastDate === today) {
+            // Уже занимались сегодня — стрик не меняем
+        } else if (lastDate === yesterday) {
+            studyStats.streak += 1;
+        } else {
+            studyStats.streak = 1;
+        }
+        studyStats.lastStudy = Date.now();
+        saveStudyStats();
+
+        studyFinishedStatsEl.innerHTML = `
+            <div>✅ Знаю: <strong>${study.knowCount}</strong></div>
+            <div>🔁 Повторить: <strong>${study.reviewCount}</strong></div>
+            <div>🔥 Дней подряд: <strong>${studyStats.streak}</strong></div>
+        `;
+
+        // Обновляем список слов и статистику
+        renderDict();
+        renderStats();
+    }
+
+    function exitStudy() {
+        study.active = false;
+        studyModeEl.hidden = true;
+        dictionaryMainEl.style.display = 'block';
+        renderDict();
+        updateWordOfDay();
+    }
+
     /* ========== КАЛЬКУЛЯТОРЫ ========== */
 
     function calcMoney() {
@@ -757,10 +1319,7 @@
         const period = $('moneyPeriod').value;
         const goalSum = Number($('moneyGoal').value) || 0;
 
-        if (amount <= 0) {
-            showToast('Введите сумму больше 0', 'fa-exclamation-triangle');
-            return;
-        }
+        if (amount <= 0) { showToast('Введите сумму больше 0', 'fa-exclamation-triangle'); return; }
 
         let perDay = amount;
         let periodLabel = '';
@@ -796,7 +1355,6 @@
             const daysToGoal = Math.ceil(goalSum / perDay);
             const dateToGoal = new Date(Date.now() + daysToGoal * DAY_MS);
             const dateStr = dateToGoal.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-
             resultHTML += `
                 <div class="calc-result-details" style="margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.1);">
                     <div class="calc-detail">
@@ -812,7 +1370,7 @@
         }
 
         resultHTML += `
-            <button class="btn-save-goal" data-goal-type="money" 
+            <button class="btn-save-goal" data-goal-type="money"
                 data-title="Накопления: ${formatNumber(perYear)} ₽ за год"
                 data-info="Откладываю ${formatNumber(amount)} ₽ ${periodLabel}">
                 <i class="fas fa-flag"></i> Зафиксировать как цель
@@ -838,10 +1396,7 @@
         const amount = Number($('bookAmount').value) || 0;
         const period = $('bookPeriod').value;
 
-        if (total <= 0 || amount <= 0) {
-            showToast('Заполните все поля', 'fa-exclamation-triangle');
-            return;
-        }
+        if (total <= 0 || amount <= 0) { showToast('Заполните все поля', 'fa-exclamation-triangle'); return; }
 
         let perDay = amount;
         let periodLabel = '';
@@ -852,7 +1407,6 @@
         const daysToFinish = Math.ceil(total / perDay);
         const dateToFinish = new Date(Date.now() + daysToFinish * DAY_MS);
         const dateStr = dateToFinish.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-
         const booksPerYear = (perDay * 365 / total).toFixed(1);
 
         const resultEl = $('bookResult');
@@ -894,7 +1448,7 @@
     /* ========== УПРАВЛЕНИЕ ЦЕЛЯМИ ========== */
 
     function addGoal(data) {
-        const goal = {
+        goals.unshift({
             id: generateId(),
             type: data.type,
             title: data.title,
@@ -902,8 +1456,7 @@
             totalDays: data.totalDays,
             createdAt: Date.now(),
             startDate: Date.now()
-        };
-        goals.unshift(goal);
+        });
         saveGoals();
         renderGoals();
         showToast('Цель зафиксирована');
@@ -935,12 +1488,11 @@
         const completedWeek = tasks.filter(t => t.completed && (t.completedAt || t.createdAt) >= weekAgo).length;
         const createdWeek = tasks.filter(t => t.createdAt >= weekAgo).length;
         const bestStreak = habits.length > 0 ? Math.max(...habits.map(h => h.streak)) : 0;
-        const rate = createdWeek > 0 ? Math.round((completedWeek / createdWeek) * 100) : 0;
 
         $('statCompletedWeek').textContent = completedWeek;
         $('statCreatedWeek').textContent = createdWeek;
         $('statBestStreak').textContent = bestStreak;
-        $('statRate').textContent = Math.min(rate, 100) + '%';
+        $('statWordsTotal').textContent = dict.length;
 
         renderWeekChart();
     }
@@ -959,12 +1511,12 @@
 
             const completed = tasks.filter(t => t.completed && (t.completedAt || t.createdAt) >= dayStart && (t.completedAt || t.createdAt) < dayEnd).length;
             const habitActs = habits.reduce((sum, h) => sum + (h.streak > 0 && h.createdAt < dayEnd ? 1 : 0), 0);
+            const words = dict.filter(w => w.createdAt >= dayStart && w.createdAt < dayEnd).length;
 
-            const total = completed + Math.min(habitActs, 5);
+            const total = completed + Math.min(habitActs, 5) + words;
 
             const date = new Date(dayStart);
             const dayName = days[(date.getDay() + 6) % 7];
-
             data.push({ label: dayName, value: total });
         }
 
@@ -993,12 +1545,10 @@
 
         tasks.push({
             id: generateId(),
-            text,
-            completed: false,
+            text, completed: false,
             createdAt: Date.now(),
             completedAt: null,
-            deadline,
-            repeat,
+            deadline, repeat,
             lastReset: Date.now()
         });
 
@@ -1015,14 +1565,9 @@
     function toggleTask(id) {
         const task = tasks.find(t => t.id === id);
         if (!task) return;
-
         task.completed = !task.completed;
         task.completedAt = task.completed ? Date.now() : null;
-
-        if (task.completed && task.repeat !== 'none') {
-            task.lastReset = Date.now();
-        }
-
+        if (task.completed && task.repeat !== 'none') task.lastReset = Date.now();
         saveTasks();
         renderTasks();
         renderStats();
@@ -1038,7 +1583,7 @@
 
     function resetTasks() {
         if (tasks.length === 0) return;
-        if (!confirm('Удалить все задачи? Действие нельзя отменить.')) return;
+        if (!confirm('Удалить все задачи?')) return;
         tasks = [];
         saveTasks();
         renderTasks();
@@ -1051,18 +1596,13 @@
     function addHabit() {
         const text = habitInput.value.trim();
         if (!text) return;
-
         const target = Math.max(1, Math.min(365, parseInt(habitTarget.value) || 7));
-
         habits.push({
             id: generateId(),
-            text,
-            streak: 0,
-            target,
+            text, streak: 0, target,
             lastCompleted: null,
             createdAt: Date.now()
         });
-
         habitInput.value = '';
         habitTarget.value = 7;
         saveHabits();
@@ -1075,7 +1615,6 @@
     function incrementHabit(id) {
         const habit = habits.find(h => h.id === id);
         if (!habit) return;
-
         if (isCompletedToday(habit.lastCompleted)) {
             habit.streak = Math.max(0, habit.streak - 1);
             habit.lastCompleted = null;
@@ -1083,7 +1622,6 @@
             habit.streak += 1;
             habit.lastCompleted = Date.now();
         }
-
         saveHabits();
         renderHabits();
         renderStats();
@@ -1099,7 +1637,7 @@
 
     function resetHabits() {
         if (habits.length === 0) return;
-        if (!confirm('Удалить все привычки? Действие нельзя отменить.')) return;
+        if (!confirm('Удалить все привычки?')) return;
         habits = [];
         saveHabits();
         renderHabits();
@@ -1119,33 +1657,23 @@
 
         modalExtra.innerHTML = `
             <label class="modal-label">Неделя</label>
-            <input type="text" id="ordWeek" class="modal-input" value="${order ? escapeHtml(order.week || '') : 'Неделя ' + (orders.length + 1)}" placeholder="Например: Неделя 1">
+            <input type="text" id="ordWeek" class="modal-input" value="${order ? escapeHtml(order.week || '') : 'Неделя ' + (orders.length + 1)}">
 
             <div class="order-modal-grid">
-                <div>
-                    <label class="modal-label">Отправлено откликов</label>
-                    <input type="number" id="ordResponses" class="modal-input" min="0" value="${order ? (order.responses || 0) : 0}">
-                </div>
-                <div>
-                    <label class="modal-label">Ответов</label>
-                    <input type="number" id="ordReplies" class="modal-input" min="0" value="${order ? (order.replies || 0) : 0}">
-                </div>
-                <div>
-                    <label class="modal-label">Сделок</label>
-                    <input type="number" id="ordDeals" class="modal-input" min="0" value="${order ? (order.deals || 0) : 0}">
-                </div>
-                <div>
-                    <label class="modal-label">Доход, ₽</label>
-                    <input type="number" id="ordIncome" class="modal-input" min="0" value="${order ? (order.income || 0) : 0}">
-                </div>
-                <div>
-                    <label class="modal-label">Клиентов на поддержке</label>
-                    <input type="number" id="ordSupport" class="modal-input" min="0" value="${order ? (order.support || 0) : 0}">
-                </div>
+                <div><label class="modal-label">Отправлено откликов</label>
+                    <input type="number" id="ordResponses" class="modal-input" min="0" value="${order ? (order.responses || 0) : 0}"></div>
+                <div><label class="modal-label">Ответов</label>
+                    <input type="number" id="ordReplies" class="modal-input" min="0" value="${order ? (order.replies || 0) : 0}"></div>
+                <div><label class="modal-label">Сделок</label>
+                    <input type="number" id="ordDeals" class="modal-input" min="0" value="${order ? (order.deals || 0) : 0}"></div>
+                <div><label class="modal-label">Доход, ₽</label>
+                    <input type="number" id="ordIncome" class="modal-input" min="0" value="${order ? (order.income || 0) : 0}"></div>
+                <div><label class="modal-label">На поддержке</label>
+                    <input type="number" id="ordSupport" class="modal-input" min="0" value="${order ? (order.support || 0) : 0}"></div>
             </div>
 
             <label class="modal-label">Заметки</label>
-            <textarea id="ordNotes" class="modal-input modal-textarea" rows="3" placeholder="Что важного было на этой неделе...">${order ? escapeHtml(order.notes || '') : ''}</textarea>
+            <textarea id="ordNotes" class="modal-input modal-textarea" rows="3">${order ? escapeHtml(order.notes || '') : ''}</textarea>
         `;
 
         modalOverlay.hidden = false;
@@ -1154,10 +1682,7 @@
 
     function saveOrderModal() {
         const week = $('ordWeek').value.trim();
-        if (!week) {
-            showToast('Укажите название недели', 'fa-exclamation-triangle');
-            return;
-        }
+        if (!week) { showToast('Укажите название недели', 'fa-exclamation-triangle'); return; }
 
         const data = {
             week,
@@ -1193,20 +1718,12 @@
     }
 
     function exportOrdersCsv() {
-        if (orders.length === 0) {
-            showToast('Нет данных для экспорта', 'fa-exclamation-triangle');
-            return;
-        }
+        if (orders.length === 0) { showToast('Нет данных', 'fa-exclamation-triangle'); return; }
 
         const headers = ['Неделя', 'Отправлено откликов', 'Ответов', 'Сделок', 'Доход', 'Средний чек', 'Клиентов на поддержке', 'Заметки'];
         const rows = orders.map(o => [
-            o.week || '',
-            o.responses || 0,
-            o.replies || 0,
-            o.deals || 0,
-            o.income || 0,
-            calcAvg(o.income, o.deals),
-            o.support || 0,
+            o.week || '', o.responses || 0, o.replies || 0, o.deals || 0,
+            o.income || 0, calcAvg(o.income, o.deals), o.support || 0,
             (o.notes || '').replace(/"/g, '""')
         ]);
 
@@ -1224,9 +1741,8 @@
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        const date = new Date().toISOString().slice(0, 10);
         a.href = url;
-        a.download = `taskflow-orders-${date}.csv`;
+        a.download = `taskflow-orders-${new Date().toISOString().slice(0, 10)}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1234,7 +1750,7 @@
         showToast('CSV экспортирован');
     }
 
-    /* ========== МОДАЛЬНОЕ ОКНО ========== */
+    /* ========== МОДАЛЬНОЕ ОКНО (общее) ========== */
 
     function openEditModal(type, id) {
         editing = { type, id };
@@ -1243,7 +1759,6 @@
             : habits.find(h => h.id === id);
 
         if (!item) return;
-
         modalInput.style.display = 'block';
         modalTitle.textContent = type === 'task' ? 'Редактировать задачу' : 'Редактировать привычку';
         modalInput.value = item.text;
@@ -1267,7 +1782,6 @@
                 <input type="number" id="modalTarget" class="modal-input" min="1" max="365" value="${item.target}">
             `;
         }
-
         modalOverlay.hidden = false;
         setTimeout(() => modalInput.focus(), 50);
     }
@@ -1276,23 +1790,20 @@
         modalOverlay.hidden = true;
         editing = null;
         editingOrder = null;
+        editingWord = null;
         modalInput.style.display = 'block';
     }
 
     function saveModal() {
-        if (editingOrder || $('ordWeek')) {
-            saveOrderModal();
-            return;
-        }
+        // Модалка заказа
+        if (editingOrder || $('ordWeek')) { saveOrderModal(); return; }
+        // Модалка слова
+        if (editingWord !== null && $('wWord')) { saveWordModal(); return; }
 
         if (!editing) return;
         const { type, id } = editing;
         const newText = modalInput.value.trim();
-
-        if (!newText) {
-            showToast('Название не может быть пустым', 'fa-exclamation-triangle');
-            return;
-        }
+        if (!newText) { showToast('Название не может быть пустым', 'fa-exclamation-triangle'); return; }
 
         if (type === 'task') {
             const task = tasks.find(t => t.id === id);
@@ -1317,7 +1828,6 @@
             renderHabits();
             renderStats();
         }
-
         showToast('Сохранено');
         closeModal();
     }
@@ -1326,19 +1836,15 @@
 
     function exportData() {
         const data = {
-            version: 6,
+            version: 7,
             exportedAt: new Date().toISOString(),
-            tasks,
-            habits,
-            orders,
-            goals
+            tasks, habits, orders, goals, dict
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        const date = new Date().toISOString().slice(0, 10);
         a.href = url;
-        a.download = `taskflow-backup-${date}.json`;
+        a.download = `taskflow-backup-${new Date().toISOString().slice(0, 10)}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1353,33 +1859,29 @@
                 const data = JSON.parse(e.target.result);
                 if (!data || typeof data !== 'object') throw new Error('Неверный формат');
 
-                const importTasks = Array.isArray(data.tasks) ? data.tasks : null;
-                const importHabits = Array.isArray(data.habits) ? data.habits : null;
-                const importOrders = Array.isArray(data.orders) ? data.orders : null;
-                const importGoals = Array.isArray(data.goals) ? data.goals : null;
+                const iT = Array.isArray(data.tasks) ? data.tasks : null;
+                const iH = Array.isArray(data.habits) ? data.habits : null;
+                const iO = Array.isArray(data.orders) ? data.orders : null;
+                const iG = Array.isArray(data.goals) ? data.goals : null;
+                const iD = Array.isArray(data.dict) ? data.dict : null;
 
-                if (!importTasks && !importHabits && !importOrders && !importGoals) throw new Error('Нет данных');
-
+                if (!iT && !iH && !iO && !iG && !iD) throw new Error('Нет данных');
                 if (!confirm('Импортировать данные? Текущие данные будут заменены.')) return;
 
-                if (importTasks) tasks = importTasks;
-                if (importHabits) habits = importHabits;
-                if (importOrders) orders = importOrders;
-                if (importGoals) goals = importGoals;
+                if (iT) tasks = iT;
+                if (iH) habits = iH;
+                if (iO) orders = iO;
+                if (iG) goals = iG;
+                if (iD) dict = iD;
 
-                saveTasks();
-                saveHabits();
-                saveOrders();
-                saveGoals();
-                renderTasks();
-                renderHabits();
-                renderOrders();
-                renderGoals();
+                saveTasks(); saveHabits(); saveOrders(); saveGoals(); saveDict();
+                renderTasks(); renderHabits(); renderOrders(); renderGoals(); renderDict();
+                updateWordOfDay();
                 renderStats();
                 showToast('Данные импортированы');
             } catch (err) {
                 console.error(err);
-                showToast('Ошибка импорта файла', 'fa-exclamation-triangle');
+                showToast('Ошибка импорта', 'fa-exclamation-triangle');
             }
         };
         reader.readAsText(file);
@@ -1387,103 +1889,93 @@
 
     /* ========== ДЕЛЕГИРОВАНИЕ СОБЫТИЙ ========== */
 
-    function handleTaskClick(e) {
-        const target = e.target.closest('[data-action]');
-        if (!target) return;
-
-        const action = target.dataset.action;
-        const id = target.dataset.id;
-
-        if (action === 'toggle-task') {
-            e.stopPropagation();
-            toggleTask(id);
-        } else if (action === 'delete-task') {
-            e.stopPropagation();
-            deleteTask(id);
-        }
-    }
-
-    function handleHabitClick(e) {
-        const target = e.target.closest('[data-action]');
-        if (!target) return;
-
-        const action = target.dataset.action;
-        const id = target.dataset.id;
-
-        if (action === 'increment-habit') {
-            e.stopPropagation();
-            incrementHabit(id);
-        } else if (action === 'delete-habit') {
-            e.stopPropagation();
-            deleteHabit(id);
-        }
-    }
-
-    function handleTaskDblClick(e) {
-        const editBtn = e.target.closest('button[data-action="edit-task"]');
-        if (editBtn) {
-            openEditModal('task', editBtn.dataset.id);
-            return;
-        }
+    // Задачи
+    taskListEl.addEventListener('click', (e) => {
+        const t = e.target.closest('[data-action]');
+        if (!t) return;
+        const { action, id } = t.dataset;
+        if (action === 'toggle-task') { e.stopPropagation(); toggleTask(id); }
+        else if (action === 'delete-task') { e.stopPropagation(); deleteTask(id); }
+        else if (action === 'edit-task' && t.tagName === 'BUTTON') { e.stopPropagation(); openEditModal('task', id); }
+    });
+    taskListEl.addEventListener('dblclick', (e) => {
         const textEl = e.target.closest('.item-text');
         if (textEl) {
             const card = textEl.closest('.item-card');
             if (card) openEditModal('task', card.dataset.id);
         }
-    }
+    });
 
-    function handleHabitDblClick(e) {
-        const editBtn = e.target.closest('button[data-action="edit-habit"]');
-        if (editBtn) {
-            openEditModal('habit', editBtn.dataset.id);
-            return;
-        }
+    // Привычки
+    habitListEl.addEventListener('click', (e) => {
+        const t = e.target.closest('[data-action]');
+        if (!t) return;
+        const { action, id } = t.dataset;
+        if (action === 'increment-habit') { e.stopPropagation(); incrementHabit(id); }
+        else if (action === 'delete-habit') { e.stopPropagation(); deleteHabit(id); }
+        else if (action === 'edit-habit' && t.tagName === 'BUTTON') { e.stopPropagation(); openEditModal('habit', id); }
+    });
+    habitListEl.addEventListener('dblclick', (e) => {
         const textEl = e.target.closest('.item-text');
         if (textEl) {
             const card = textEl.closest('.item-card');
             if (card) openEditModal('habit', card.dataset.id);
         }
-    }
+    });
 
-    function handleTaskClickForEdit(e) {
-        const btn = e.target.closest('button[data-action="edit-task"]');
-        if (btn) {
-            e.stopPropagation();
-            openEditModal('task', btn.dataset.id);
-        }
-    }
-
-    function handleHabitClickForEdit(e) {
-        const btn = e.target.closest('button[data-action="edit-habit"]');
-        if (btn) {
-            e.stopPropagation();
-            openEditModal('habit', btn.dataset.id);
-        }
-    }
-
-    taskListEl.addEventListener('click', handleTaskClick);
-    taskListEl.addEventListener('click', handleTaskClickForEdit);
-    taskListEl.addEventListener('dblclick', handleTaskDblClick);
-
-    habitListEl.addEventListener('click', handleHabitClick);
-    habitListEl.addEventListener('click', handleHabitClickForEdit);
-    habitListEl.addEventListener('dblclick', handleHabitDblClick);
-
+    // Заказы
     [ordersBodyEl, ordersCardsEl].forEach(el => {
         el.addEventListener('click', (e) => {
-            const target = e.target.closest('[data-action]');
-            if (!target) return;
-            const { action, id } = target.dataset;
+            const t = e.target.closest('[data-action]');
+            if (!t) return;
+            const { action, id } = t.dataset;
             if (action === 'edit-order') openOrderModal(id);
             else if (action === 'delete-order') deleteOrder(id);
         });
     });
 
+    // Цели
     goalsListEl.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-action="delete-goal"]');
         if (btn) deleteGoal(btn.dataset.id);
     });
 
+    // Словарь
+    dictListEl.addEventListener('click', (e) => {
+        const t = e.target.closest('[data-action]');
+        if (!t) return;
+        const { action, id } = t.dataset;
+        if (action === 'toggle-favorite') { e.stopPropagation(); toggleFavorite(id); }
+        else if (action === 'edit-word') { e.stopPropagation(); openWordModal(id); }
+        else if (action === 'delete-word') { e.stopPropagation(); deleteWord(id); }
+        else if (action === 'toggle-meaning') { e.stopPropagation(); toggleMeaningExpand(id); }
+    });
+
+    dictCategoriesEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('.dict-cat-btn');
+        if (!btn) return;
+        dictCategory = btn.dataset.cat;
+        renderDict();
+    });
+
+    // Слово дня
+    wodToggleEl.addEventListener('click', () => {
+        const isExpanded = wodMeaningEl.classList.toggle('expanded');
+        const w = dict.find(x => x.id === wod.wordId);
+        if (!w) return;
+
+        if (isExpanded) {
+            wodMeaningEl.textContent = w.meaning;
+            wodToggleEl.classList.add('expanded');
+            wodToggleEl.querySelector('span').textContent = 'Свернуть';
+        } else {
+            wodMeaningEl.textContent = truncateText(w.meaning);
+            wodToggleEl.classList.remove('expanded');
+            wodToggleEl.querySelector('span').textContent = 'Показать полностью';
+        }
+    });
+
+    // Клавиатура
     [taskListEl, habitListEl].forEach((el) => {
         el.addEventListener('keydown', (e) => {
             if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -1508,6 +2000,9 @@
     addOrderBtn.addEventListener('click', () => openOrderModal(null));
     exportCsvBtn.addEventListener('click', exportOrdersCsv);
 
+    addWordBtn.addEventListener('click', () => openWordModal(null));
+    exportDictCsvBtn.addEventListener('click', exportDictCsv);
+
     exportBtn.addEventListener('click', exportData);
     importBtn.addEventListener('click', () => importInput.click());
     importInput.addEventListener('change', (e) => {
@@ -1516,8 +2011,22 @@
         e.target.value = '';
     });
 
-    /* ========== КАЛЬКУЛЯТОРЫ ========== */
+    // Поиск и фильтры словаря
+    dictSearchEl.addEventListener('input', (e) => {
+        dictSearchQuery = e.target.value.trim();
+        renderDict();
+    });
 
+    document.querySelectorAll('.dict-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.dict-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            dictFilter = btn.dataset.filter;
+            renderDict();
+        });
+    });
+
+    // Калькуляторы
     document.querySelectorAll('.calc-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.calc-tab').forEach(t => t.classList.remove('active'));
@@ -1530,8 +2039,15 @@
     $('calcMoneyBtn').addEventListener('click', calcMoney);
     $('calcBookBtn').addEventListener('click', calcBook);
 
-    /* ========== ФИЛЬТРЫ ========== */
+    // Режим изучения
+    studyStartBtn.addEventListener('click', startStudy);
+    studyExitBtn.addEventListener('click', exitStudy);
+    showMeaningBtn.addEventListener('click', revealMeaning);
+    knowBtn.addEventListener('click', markKnow);
+    reviewBtn.addEventListener('click', markReview);
+    studyRestartBtn.addEventListener('click', startStudy);
 
+    // Фильтры задач
     document.querySelectorAll('.filter-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -1541,8 +2057,7 @@
         });
     });
 
-    /* ========== ВКЛАДКИ ========== */
-
+    // Вкладки
     document.querySelectorAll('.tab').forEach((tab) => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.tab').forEach(t => {
@@ -1559,45 +2074,32 @@
             if (tab.dataset.tab === 'stats') renderStats();
             if (tab.dataset.tab === 'orders') renderOrders();
             if (tab.dataset.tab === 'goals') renderGoals();
+            if (tab.dataset.tab === 'dictionary') {
+                renderDict();
+                updateWordOfDay();
+            }
         });
     });
 
-    /* ========== МОДАЛЬНОЕ ОКНО ========== */
-
+    // Модальное окно
     modalCancel.addEventListener('click', closeModal);
     modalSave.addEventListener('click', saveModal);
-    modalInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') saveModal();
-    });
-    modalOverlay.addEventListener('click', (e) => {
-        if (e.target === modalOverlay) closeModal();
-    });
+    modalInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') saveModal(); });
+    modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !modalOverlay.hidden) closeModal();
     });
 
-    /* ========== УВЕДОМЛЕНИЯ ========== */
-
+    // Уведомления
     notifyBadge.addEventListener('click', requestNotificationPermission);
 
-    /* ========== СИНХРОНИЗАЦИЯ МЕЖДУ ВКЛАДКАМИ ========== */
-
+    // Синхронизация вкладок
     window.addEventListener('storage', (e) => {
-        if (e.key === TASKS_KEY) {
-            loadFromStorage();
-            renderTasks();
-            renderStats();
-        } else if (e.key === HABITS_KEY) {
-            loadFromStorage();
-            renderHabits();
-            renderStats();
-        } else if (e.key === ORDERS_KEY) {
-            loadFromStorage();
-            renderOrders();
-        } else if (e.key === GOALS_KEY) {
-            loadFromStorage();
-            renderGoals();
-        }
+        if (e.key === TASKS_KEY) { loadFromStorage(); renderTasks(); renderStats(); }
+        else if (e.key === HABITS_KEY) { loadFromStorage(); renderHabits(); renderStats(); }
+        else if (e.key === ORDERS_KEY) { loadFromStorage(); renderOrders(); }
+        else if (e.key === GOALS_KEY) { loadFromStorage(); renderGoals(); }
+        else if (e.key === DICT_KEY) { loadFromStorage(); renderDict(); updateWordOfDay(); renderStats(); }
     });
 
     /* ========== PWA ========== */
@@ -1612,13 +2114,11 @@
                 .then((reg) => console.log('SW registered:', reg.scope))
                 .catch((err) => console.warn('SW registration failed:', err));
         });
-    } else if (isLocalhost) {
+    } else if (isLocalhost && 'serviceWorker' in navigator) {
         console.log('%c⚙ SW отключён на localhost', 'color: #8e9bb8;');
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(regs => {
-                regs.forEach(reg => reg.unregister());
-            });
-        }
+        navigator.serviceWorker.getRegistrations().then(regs => {
+            regs.forEach(reg => reg.unregister());
+        });
     }
 
     let deferredPrompt = null;
@@ -1633,9 +2133,7 @@
         if (!deferredPrompt) return;
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-            showToast('Приложение установлено', 'fa-download');
-        }
+        if (outcome === 'accepted') showToast('Приложение установлено', 'fa-download');
         deferredPrompt = null;
         installBadge.hidden = true;
     });
@@ -1649,13 +2147,12 @@
         installBadge.hidden = true;
     }
 
-    /* ========== ВИДИМОСТЬ ВКЛАДКИ ========== */
-
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
             processRepeats();
             checkDeadlines();
             renderGoals();
+            updateWordOfDay();
         }
     });
 
@@ -1668,10 +2165,11 @@
         renderHabits();
         renderOrders();
         renderGoals();
+        renderDict();
+        updateWordOfDay();
         renderStats();
 
-        const today = new Date().toISOString().slice(0, 10);
-        taskDate.min = today;
+        taskDate.min = todayStr();
 
         updateNotifyBadge();
         startDeadlineChecker();
@@ -1679,9 +2177,9 @@
 
         taskInput.focus();
 
-        console.log('%c⚡ TaskFlow Premium v6', 'font-size: 16px; font-weight: bold; color: #6d8cff;');
-        console.log('%c• Планировщик • Заказы • Цели • Статистика', 'color: #8e9bb8;');
-        console.log('%c• Уведомления • Повторы • CSV • PWA', 'color: #8e9bb8;');
+        console.log('%c⚡ TaskFlow Premium v7', 'font-size: 16px; font-weight: bold; color: #6d8cff;');
+        console.log('%c• Планировщик • Заказы • Цели • Словарь • Статистика', 'color: #8e9bb8;');
+        console.log('%c• Игра-карточки • Слово дня • CSV • PWA', 'color: #8e9bb8;');
     }
 
     setInterval(processRepeats, 300000);
