@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>TaskFlow · Премиум планировщик задач и привычек</title>
-    <meta name="description" content="Премиальный планировщик задач, трекер привычек, учёт заказов и калькуляторы целей. Работает офлайн, хранит данные локально, бесплатно.">
-    <meta name="keywords" content="планировщик, задачи, привычки, заказы, фриланс, цели, калькулятор, todo, продуктивность, PWA">
+    <title>TaskFlow · Премиум планировщик и словарь</title>
+    <meta name="description" content="Планировщик задач, трекер привычек, учёт заказов, калькуляторы и личный словарь. Работает офлайн.">
+    <meta name="keywords" content="планировщик, задачи, привычки, заказы, фриланс, цели, словарь, todo, продуктивность, PWA">
     <meta name="author" content="TaskFlow">
     <meta name="robots" content="index, follow">
 
@@ -23,12 +23,12 @@
 
     <meta property="og:type" content="website">
     <meta property="og:title" content="TaskFlow · Премиум планировщик">
-    <meta property="og:description" content="Планировщик задач, трекер привычек, учёт заказов и калькуляторы целей. Работает офлайн.">
+    <meta property="og:description" content="Планировщик задач, трекер привычек, учёт заказов, калькуляторы и личный словарь.">
     <meta property="og:image" content="icons/web-app-manifest-512x512.png">
     <meta property="og:site_name" content="TaskFlow">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="TaskFlow · Премиум планировщик">
-    <meta name="twitter:description" content="Планировщик задач, трекер привычек, учёт заказов и калькуляторы целей. Работает офлайн.">
+    <meta name="twitter:description" content="Планировщик задач, трекер привычек, учёт заказов, калькуляторы и личный словарь.">
     <meta name="twitter:image" content="icons/web-app-manifest-512x512.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -72,6 +72,9 @@
             </button>
             <button class="tab" data-tab="goals" role="tab" aria-selected="false">
                 <i class="fas fa-bullseye"></i> Цели
+            </button>
+            <button class="tab" data-tab="dictionary" role="tab" aria-selected="false">
+                <i class="fas fa-book-open"></i> Словарь
             </button>
             <button class="tab" data-tab="stats" role="tab" aria-selected="false">
                 <i class="fas fa-chart-line"></i> Статистика
@@ -204,7 +207,6 @@
                     </button>
                 </div>
 
-                <!-- КАЛЬКУЛЯТОР: Деньги -->
                 <div class="calc-form active" id="calc-money">
                     <div class="calc-grid">
                         <div class="calc-field">
@@ -231,7 +233,6 @@
                     <div class="calc-result" id="moneyResult" hidden></div>
                 </div>
 
-                <!-- КАЛЬКУЛЯТОР: Книга -->
                 <div class="calc-form" id="calc-book">
                     <div class="calc-grid">
                         <div class="calc-field">
@@ -270,6 +271,110 @@
             </div>
         </div>
 
+        <!-- ПАНЕЛЬ: Словарь -->
+        <div class="tab-panel" id="panel-dictionary" role="tabpanel">
+            <!-- Режим изучения (скрыт по умолчанию) -->
+            <div class="study-mode" id="studyMode" hidden>
+                <div class="study-header">
+                    <button class="btn-mini" id="studyExitBtn">
+                        <i class="fas fa-arrow-left"></i> Выйти
+                    </button>
+                    <div class="study-progress-info">
+                        <span id="studyCounter">0 / 0</span>
+                    </div>
+                </div>
+
+                <div class="study-progress-bar">
+                    <div class="study-progress-fill" id="studyProgressFill"></div>
+                </div>
+
+                <div class="study-card" id="studyCard">
+                    <div class="study-card-category" id="studyCategory">—</div>
+                    <div class="study-card-word" id="studyWord">—</div>
+                    <div class="study-card-meaning" id="studyMeaning" hidden>—</div>
+                    <button class="btn-show-meaning" id="showMeaningBtn">
+                        <i class="fas fa-eye"></i> Показать значение
+                    </button>
+                </div>
+
+                <div class="study-actions" id="studyActions" hidden>
+                    <button class="btn-study btn-review" id="reviewBtn">
+                        <i class="fas fa-redo"></i> Повторить
+                    </button>
+                    <button class="btn-study btn-know" id="knowBtn">
+                        <i class="fas fa-check"></i> Знаю
+                    </button>
+                </div>
+
+                <div class="study-finished" id="studyFinished" hidden>
+                    <div class="study-finished-icon">🎉</div>
+                    <div class="study-finished-title">Сессия завершена!</div>
+                    <div class="study-finished-stats" id="studyFinishedStats"></div>
+                    <button class="btn-calc" id="studyRestartBtn">
+                        <i class="fas fa-redo"></i> Пройти ещё раз
+                    </button>
+                </div>
+            </div>
+
+            <!-- Обычный режим словаря -->
+            <div id="dictionaryMain">
+                <!-- Слово дня -->
+                <div class="word-of-day" id="wordOfDay" hidden>
+                    <div class="word-of-day-label">
+                        <i class="fas fa-lightbulb"></i> Слово дня
+                    </div>
+                    <div class="word-of-day-word" id="wodWord"></div>
+                    <div class="word-of-day-meaning" id="wodMeaning"></div>
+                    <button class="btn-show-more" id="wodToggle">
+                        <span>Показать полностью</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="word-of-day-meta" id="wodMeta"></div>
+                </div>
+
+                <div class="section section-full">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <i class="fas fa-book-open"></i>
+                            <span>Мой словарь</span>
+                        </div>
+                        <div class="header-actions-inline">
+                            <span class="count-badge" id="dictCount">0 слов</span>
+                            <button class="btn-mini" id="addWordBtn">
+                                <i class="fas fa-plus"></i> Добавить слово
+                            </button>
+                            <button class="btn-mini" id="studyStartBtn">
+                                <i class="fas fa-graduation-cap"></i> Учить
+                            </button>
+                            <button class="btn-mini" id="exportDictCsvBtn">
+                                <i class="fas fa-file-csv"></i> CSV
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="dict-toolbar">
+                        <div class="dict-search-wrap">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="dictSearch" class="dict-search" placeholder="Поиск по слову или значению...">
+                        </div>
+                        <button class="dict-filter-btn active" data-filter="all">
+                            <i class="fas fa-list"></i> Все
+                        </button>
+                        <button class="dict-filter-btn" data-filter="favorite">
+                            <i class="fas fa-star"></i> Избранное
+                        </button>
+                        <button class="dict-filter-btn" data-filter="review">
+                            <i class="fas fa-redo"></i> Повторить
+                        </button>
+                    </div>
+
+                    <div class="dict-categories" id="dictCategories"></div>
+
+                    <div class="dict-list" id="dictList"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- ПАНЕЛЬ: Статистика -->
         <div class="tab-panel" id="panel-stats" role="tabpanel">
             <div class="stats-grid">
@@ -289,9 +394,9 @@
                     <div class="stat-label">Лучшая серия привычек</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-percent"></i></div>
-                    <div class="stat-value" id="statRate">0%</div>
-                    <div class="stat-label">Продуктивность</div>
+                    <div class="stat-icon"><i class="fas fa-book"></i></div>
+                    <div class="stat-value" id="statWordsTotal">0</div>
+                    <div class="stat-label">Слов в словаре</div>
                 </div>
             </div>
 
