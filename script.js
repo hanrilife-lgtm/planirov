@@ -1787,10 +1787,8 @@
     }
 
     function saveModal() {
-        // Модалка заказа
-        if (editingOrder || $('ordWeek')) { saveOrderModal(); return; }
-        // Модалка слова
-        if (editingWord !== null && $('wWord')) { saveWordModal(); return; }
+        if ($('ordWeek')) { saveOrderModal(); return; }
+        if ($('wWord')) { saveWordModal(); return; }
 
         if (!editing) return;
         const { type, id } = editing;
