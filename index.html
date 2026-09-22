@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>TaskFlow · Премиум планировщик задач и привычек</title>
-    <meta name="description" content="Премиальный планировщик задач, трекер привычек и учёт заказов. Работает офлайн, хранит данные локально, бесплатно.">
-    <meta name="keywords" content="планировщик, задачи, привычки, заказы, фриланс, todo, продуктивность, PWA">
+    <meta name="description" content="Премиальный планировщик задач, трекер привычек, учёт заказов и калькуляторы целей. Работает офлайн, хранит данные локально, бесплатно.">
+    <meta name="keywords" content="планировщик, задачи, привычки, заказы, фриланс, цели, калькулятор, todo, продуктивность, PWA">
     <meta name="author" content="TaskFlow">
     <meta name="robots" content="index, follow">
 
@@ -23,12 +23,12 @@
 
     <meta property="og:type" content="website">
     <meta property="og:title" content="TaskFlow · Премиум планировщик">
-    <meta property="og:description" content="Планировщик задач, трекер привычек и учёт заказов. Работает офлайн.">
+    <meta property="og:description" content="Планировщик задач, трекер привычек, учёт заказов и калькуляторы целей. Работает офлайн.">
     <meta property="og:image" content="icons/web-app-manifest-512x512.png">
     <meta property="og:site_name" content="TaskFlow">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="TaskFlow · Премиум планировщик">
-    <meta name="twitter:description" content="Планировщик задач, трекер привычек и учёт заказов. Работает офлайн.">
+    <meta name="twitter:description" content="Планировщик задач, трекер привычек, учёт заказов и калькуляторы целей. Работает офлайн.">
     <meta name="twitter:image" content="icons/web-app-manifest-512x512.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -69,6 +69,9 @@
             </button>
             <button class="tab" data-tab="orders" role="tab" aria-selected="false">
                 <i class="fas fa-briefcase"></i> Заказы
+            </button>
+            <button class="tab" data-tab="goals" role="tab" aria-selected="false">
+                <i class="fas fa-bullseye"></i> Цели
             </button>
             <button class="tab" data-tab="stats" role="tab" aria-selected="false">
                 <i class="fas fa-chart-line"></i> Статистика
@@ -180,6 +183,91 @@
 
                 <div class="orders-cards" id="ordersCards"></div>
             </section>
+        </div>
+
+        <!-- ПАНЕЛЬ: Цели -->
+        <div class="tab-panel" id="panel-goals" role="tabpanel">
+            <div class="section section-full" style="margin-bottom: 1.5rem;">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="fas fa-calculator"></i>
+                        <span>Калькуляторы</span>
+                    </div>
+                </div>
+
+                <div class="calc-switcher">
+                    <button class="calc-tab active" data-calc="money">
+                        <i class="fas fa-coins"></i> Накопления
+                    </button>
+                    <button class="calc-tab" data-calc="book">
+                        <i class="fas fa-book"></i> Книга
+                    </button>
+                </div>
+
+                <!-- КАЛЬКУЛЯТОР: Деньги -->
+                <div class="calc-form active" id="calc-money">
+                    <div class="calc-grid">
+                        <div class="calc-field">
+                            <label class="calc-label">Сумма</label>
+                            <input type="number" id="moneyAmount" class="calc-input" placeholder="500" value="500" min="1">
+                        </div>
+                        <div class="calc-field">
+                            <label class="calc-label">Периодичность</label>
+                            <select id="moneyPeriod" class="calc-input">
+                                <option value="day">В день</option>
+                                <option value="week">В неделю</option>
+                                <option value="month" selected>В месяц</option>
+                                <option value="year">В год</option>
+                            </select>
+                        </div>
+                        <div class="calc-field">
+                            <label class="calc-label">Цель, ₽ <span class="calc-optional">(опционально)</span></label>
+                            <input type="number" id="moneyGoal" class="calc-input" placeholder="100000" min="0">
+                        </div>
+                    </div>
+                    <button class="btn-calc" id="calcMoneyBtn">
+                        <i class="fas fa-calculator"></i> Рассчитать
+                    </button>
+                    <div class="calc-result" id="moneyResult" hidden></div>
+                </div>
+
+                <!-- КАЛЬКУЛЯТОР: Книга -->
+                <div class="calc-form" id="calc-book">
+                    <div class="calc-grid">
+                        <div class="calc-field">
+                            <label class="calc-label">Страниц в книге</label>
+                            <input type="number" id="bookTotal" class="calc-input" placeholder="300" value="300" min="1">
+                        </div>
+                        <div class="calc-field">
+                            <label class="calc-label">Читаю</label>
+                            <input type="number" id="bookAmount" class="calc-input" placeholder="15" value="15" min="1">
+                        </div>
+                        <div class="calc-field">
+                            <label class="calc-label">Периодичность</label>
+                            <select id="bookPeriod" class="calc-input">
+                                <option value="day" selected>Страниц в день</option>
+                                <option value="week">Страниц в неделю</option>
+                                <option value="month">Страниц в месяц</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn-calc" id="calcBookBtn">
+                        <i class="fas fa-calculator"></i> Рассчитать
+                    </button>
+                    <div class="calc-result" id="bookResult" hidden></div>
+                </div>
+            </div>
+
+            <div class="section section-full">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="fas fa-flag-checkered"></i>
+                        <span>Мои цели</span>
+                    </div>
+                    <span class="count-badge" id="goalsCount">0</span>
+                </div>
+                <div class="goals-list" id="goalsList"></div>
+            </div>
         </div>
 
         <!-- ПАНЕЛЬ: Статистика -->
