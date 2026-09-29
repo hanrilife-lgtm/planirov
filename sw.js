@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'taskflow-v10';
+const CACHE_VERSION = 'taskflow-v11';
 const CACHE_NAME = `${CACHE_VERSION}-static`;
 
 const PRECACHE_ASSETS = [
