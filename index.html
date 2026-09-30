@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>TaskFlow · Премиум планировщик и стратегия</title>
+    <title>TaskFlow · Планировщик, стратегия и словарь</title>
     <meta name="description" content="Планировщик задач, трекер привычек, стратегия целей, словарь и учёт заказов. Работает офлайн.">
     <meta name="keywords" content="планировщик, задачи, привычки, стратегия, цели, словарь, фриланс, todo, продуктивность, PWA">
     <meta name="author" content="TaskFlow">
@@ -15,466 +15,483 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#6d8cff">
+    <meta name="theme-color" content="#0e0e10">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="TaskFlow">
     <meta name="mobile-web-app-capable" content="yes">
 
     <meta property="og:type" content="website">
-    <meta property="og:title" content="TaskFlow · Премиум планировщик">
-    <meta property="og:description" content="Планировщик задач, трекер привычек, стратегия целей, словарь и учёт заказов.">
+    <meta property="og:title" content="TaskFlow">
+    <meta property="og:description" content="Планировщик, стратегия и словарь в одном месте.">
     <meta property="og:image" content="icons/web-app-manifest-512x512.png">
     <meta property="og:site_name" content="TaskFlow">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="TaskFlow · Премиум планировщик">
-    <meta name="twitter:description" content="Планировщик задач, трекер привычек, стратегия целей, словарь и учёт заказов.">
-    <meta name="twitter:image" content="icons/web-app-manifest-512x512.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="app-container">
+    <div class="app">
+        <!-- HEADER -->
         <header class="app-header">
-            <div class="logo-area">
-                <div class="logo-icon">
-                    <i class="fas fa-bolt"></i>
+            <div class="brand">
+                <div class="brand-mark">
+                    <svg viewBox="0 0 24 24" fill="none" width="22" height="22">
+                        <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor"/>
+                    </svg>
                 </div>
-                <div class="logo-text">TaskFlow</div>
+                <span class="brand-name">TaskFlow</span>
+                <span class="brand-tag">v1.0</span>
             </div>
-            <div class="header-actions">
-                <button class="badge badge-btn" id="notifyBadge" title="Включить уведомления" hidden>
-                    <i class="fas fa-bell"></i>
-                    <span>Уведомления</span>
+
+            <div class="header-right">
+                <button class="ghost-btn" id="notifyBadge" hidden>
+                    <i class="fas fa-bell"></i> <span>Уведомления</span>
                 </button>
-                <button class="badge badge-btn" id="installBadge" title="Установить приложение" hidden>
-                    <i class="fas fa-download"></i>
-                    <span>Установить</span>
+                <button class="ghost-btn" id="installBadge" hidden>
+                    <i class="fas fa-arrow-down-to-line"></i> <span>Установить</span>
                 </button>
-                <div class="badge">
-                    <i class="fas fa-crown"></i>
-                    <span>Премиум</span>
-                </div>
+                <button class="ghost-btn" id="exportBtn" title="Экспорт">
+                    <i class="fas fa-file-export"></i>
+                </button>
+                <button class="ghost-btn" id="importBtn" title="Импорт">
+                    <i class="fas fa-file-import"></i>
+                </button>
+                <input type="file" id="importInput" accept="application/json" hidden>
             </div>
         </header>
 
-        <nav class="tabs" role="tablist">
-            <button class="tab active" data-tab="planner" role="tab" aria-selected="true">
-                <i class="fas fa-list-check"></i> Планировщик
+        <!-- NAV -->
+        <nav class="nav" role="tablist">
+            <button class="nav-tab active" data-tab="planner">
+                <span class="nav-tab-num">01</span>
+                <span class="nav-tab-label">Планировщик</span>
             </button>
-            <button class="tab" data-tab="orders" role="tab" aria-selected="false">
-                <i class="fas fa-briefcase"></i> Заказы
+            <button class="nav-tab" data-tab="strategy">
+                <span class="nav-tab-num">02</span>
+                <span class="nav-tab-label">Стратегия</span>
             </button>
-            <button class="tab" data-tab="strategy" role="tab" aria-selected="false">
-                <i class="fas fa-sitemap"></i> Стратегия
+            <button class="nav-tab" data-tab="orders">
+                <span class="nav-tab-num">03</span>
+                <span class="nav-tab-label">Заказы</span>
             </button>
-            <button class="tab" data-tab="dictionary" role="tab" aria-selected="false">
-                <i class="fas fa-book-open"></i> Словарь
+            <button class="nav-tab" data-tab="dictionary">
+                <span class="nav-tab-num">04</span>
+                <span class="nav-tab-label">Словарь</span>
             </button>
-            <button class="tab" data-tab="stats" role="tab" aria-selected="false">
-                <i class="fas fa-chart-line"></i> Статистика
+            <button class="nav-tab" data-tab="stats">
+                <span class="nav-tab-num">05</span>
+                <span class="nav-tab-label">Статистика</span>
             </button>
         </nav>
 
-        <!-- ПАНЕЛЬ: Планировщик -->
-        <div class="tab-panel active" id="panel-planner" role="tabpanel">
-            <div class="grid-2">
-                <section class="section">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <i class="fas fa-check-circle"></i>
-                            <span>Задачи</span>
+        <!-- ========== ПАНЕЛЬ: Планировщик ========== -->
+        <section class="panel active" id="panel-planner">
+            <div class="split-2">
+                <!-- Задачи -->
+                <div class="block">
+                    <header class="block-head">
+                        <div>
+                            <h2 class="block-title">Задачи</h2>
+                            <p class="block-sub" id="taskSubtitle">0 активных</p>
                         </div>
-                        <span class="count-badge" id="taskCount">0</span>
-                    </div>
+                        <div class="block-actions">
+                            <button class="icon-btn" id="taskFilterBtn" title="Фильтры">
+                                <i class="fas fa-sliders"></i>
+                            </button>
+                        </div>
+                    </header>
 
-                    <div class="add-form">
-                        <input type="text" id="taskInput" placeholder="Что нужно сделать?" autocomplete="off" aria-label="Новая задача">
-                        <input type="date" id="taskDate" class="date-input" title="Дедлайн" aria-label="Дедлайн">
-                        <button id="addTaskBtn" aria-label="Добавить задачу">
+                    <div class="add-row">
+                        <input type="text" id="taskInput" class="input" placeholder="Что нужно сделать?">
+                        <input type="date" id="taskDate" class="input input-date" title="Дедлайн">
+                        <button class="btn-primary" id="addTaskBtn">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
 
-                    <div class="repeat-row">
-                        <label class="repeat-label" for="taskRepeat">
-                            <i class="fas fa-redo"></i> Повтор:
-                        </label>
-                        <select id="taskRepeat" class="repeat-select">
-                            <option value="none">Не повторять</option>
+                    <div class="chips-row" id="taskFilterChips">
+                        <button class="chip active" data-filter="all">Все</button>
+                        <button class="chip" data-filter="active">Активные</button>
+                        <button class="chip" data-filter="completed">Выполнено</button>
+                        <button class="chip" data-filter="overdue">Просрочено</button>
+                        <div class="chip-divider"></div>
+                        <select id="taskRepeat" class="chip-select">
+                            <option value="none">Без повтора</option>
                             <option value="daily">Каждый день</option>
                             <option value="weekly">Каждую неделю</option>
                             <option value="monthly">Каждый месяц</option>
                         </select>
                     </div>
 
-                    <div class="filters">
-                        <button class="filter-btn active" data-filter="all">Все</button>
-                        <button class="filter-btn" data-filter="active">Активные</button>
-                        <button class="filter-btn" data-filter="completed">Выполнено</button>
-                        <button class="filter-btn" data-filter="overdue">Просрочено</button>
-                    </div>
+                    <div class="list" id="taskList"></div>
+                </div>
 
-                    <div class="items-list" id="taskList"></div>
-                </section>
-
-                <section class="section">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <i class="fas fa-seedling"></i>
-                            <span>Привычки</span>
+                <!-- Привычки -->
+                <div class="block">
+                    <header class="block-head">
+                        <div>
+                            <h2 class="block-title">Привычки</h2>
+                            <p class="block-sub" id="habitSubtitle">0 отслеживается</p>
                         </div>
-                        <span class="count-badge" id="habitCount">0</span>
-                    </div>
+                    </header>
 
-                    <div class="add-form">
-                        <input type="text" id="habitInput" placeholder="Новая привычка..." autocomplete="off" aria-label="Новая привычка">
-                        <input type="number" id="habitTarget" class="target-input" min="1" max="365" value="7" title="Цель (дней)" aria-label="Цель (дней)">
-                        <button id="addHabitBtn" aria-label="Добавить привычку">
+                    <div class="add-row">
+                        <input type="text" id="habitInput" class="input" placeholder="Новая привычка...">
+                        <input type="number" id="habitTarget" class="input input-small" min="1" max="365" value="7" title="Цель (дней)">
+                        <button class="btn-primary" id="addHabitBtn">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
 
-                    <div class="items-list" id="habitList"></div>
-                </section>
+                    <div class="list" id="habitList"></div>
+                </div>
             </div>
-        </div>
+        </section>
 
-        <!-- ПАНЕЛЬ: Заказы -->
-        <div class="tab-panel" id="panel-orders" role="tabpanel">
-            <section class="section section-full">
-                <div class="section-header">
-                    <div class="section-title">
-                        <i class="fas fa-briefcase"></i>
-                        <span>Трекер заказов</span>
+        <!-- ========== ПАНЕЛЬ: Стратегия ========== -->
+        <section class="panel" id="panel-strategy">
+            <!-- Шапка цели -->
+            <header class="strategy-head">
+                <div class="strategy-head-left">
+                    <div class="strategy-label">Основная цель</div>
+                    <h1 class="strategy-title" id="strategyTitle">—</h1>
+                    <div class="strategy-meta" id="strategyMeta"></div>
+                </div>
+                <div class="strategy-head-right">
+                    <button class="btn-soft" id="strategyCalcBtn">
+                        <i class="fas fa-calculator"></i> Калькуляторы
+                    </button>
+                    <button class="btn-primary" id="addMainGoalBtn">
+                        <i class="fas fa-plus"></i> Новая цель
+                    </button>
+                </div>
+            </header>
+
+            <!-- График -->
+            <div class="chart-hero">
+                <div class="chart-hero-head">
+                    <div class="chart-title-block">
+                        <span class="chart-title">Прогресс к цели</span>
+                        <div class="chart-period-tabs">
+                            <button class="period-btn" data-period="7">7д</button>
+                            <button class="period-btn" data-period="30">30д</button>
+                            <button class="period-btn active" data-period="all">Всё</button>
+                        </div>
                     </div>
-                    <div class="header-actions-inline">
-                        <span class="count-badge" id="ordersCount">0 недель</span>
-                        <button class="btn-mini" id="addOrderBtn">
-                            <i class="fas fa-plus"></i> Добавить неделю
-                        </button>
-                        <button class="btn-mini" id="exportCsvBtn">
-                            <i class="fas fa-file-csv"></i> CSV
-                        </button>
-                    </div>
+                    <div class="chart-kpi" id="chartKpi"></div>
                 </div>
 
+                <div class="chart-svg-wrap">
+                    <svg id="heroChart" viewBox="0 0 900 380" preserveAspectRatio="none"></svg>
+                    <div class="chart-tooltip" id="chartTooltip" hidden></div>
+                </div>
+
+                <div class="chart-insight" id="chartInsight"></div>
+            </div>
+
+            <!-- Сетка: дерево + дневник -->
+            <div class="strategy-grid">
+                <!-- Дерево целей -->
+                <div class="block block-tree">
+                    <header class="block-head">
+                        <div>
+                            <h2 class="block-title">Дерево целей</h2>
+                            <p class="block-sub" id="treeSubtitle">—</p>
+                        </div>
+                        <div class="block-actions">
+                            <button class="icon-btn" id="expandAllBtn" title="Развернуть всё">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                            <button class="icon-btn" id="collapseAllBtn" title="Свернуть всё">
+                                <i class="fas fa-compress"></i>
+                            </button>
+                        </div>
+                    </header>
+
+                    <div class="tree" id="treeList"></div>
+                </div>
+
+                <!-- Дневник -->
+                <div class="block block-journal">
+                    <header class="block-head">
+                        <div>
+                            <h2 class="block-title">Дневник пути</h2>
+                            <p class="block-sub" id="journalSubtitle">—</p>
+                        </div>
+                        <div class="block-actions">
+                            <button class="icon-btn" id="newJournalBtn" title="Новая запись">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </header>
+
+                    <div class="journal-quick">
+                        <select id="journalGoalSelect" class="input input-mini"></select>
+                        <select id="journalMoodSelect" class="input input-mini"></select>
+                        <input type="text" id="journalQuickInput" class="input" placeholder="Что чувствуешь?">
+                        <button class="btn-primary btn-icon-only" id="journalQuickAdd" title="Добавить">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+
+                    <div class="journal-list" id="journalList"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== ПАНЕЛЬ: Заказы ========== -->
+        <section class="panel" id="panel-orders">
+            <div class="block">
+                <header class="block-head">
+                    <div>
+                        <h2 class="block-title">Заказы</h2>
+                        <p class="block-sub" id="ordersSubtitle">—</p>
+                    </div>
+                    <div class="block-actions">
+                        <button class="btn-soft" id="exportCsvBtn">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                        <button class="btn-primary" id="addOrderBtn">
+                            <i class="fas fa-plus"></i> Неделя
+                        </button>
+                    </div>
+                </header>
+
+                <div class="orders-summary" id="ordersSummary"></div>
                 <div class="orders-table-wrap">
-                    <table class="orders-table" id="ordersTable">
+                    <table class="orders-table">
                         <thead>
                             <tr>
                                 <th>Неделя</th>
-                                <th>Отправлено<br>откликов</th>
-                                <th>Ответов</th>
-                                <th>Сделок</th>
-                                <th>Доход ₽</th>
+                                <th>Отклики</th>
+                                <th>Ответы</th>
+                                <th>Сделки</th>
+                                <th>Доход</th>
                                 <th>Средний чек</th>
-                                <th>Клиентов<br>на поддержке</th>
+                                <th>Поддержка</th>
                                 <th>Заметки</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody id="ordersBody"></tbody>
-                        <tfoot id="ordersFoot"></tfoot>
                     </table>
                 </div>
-
                 <div class="orders-cards" id="ordersCards"></div>
-            </section>
-        </div>
+            </div>
+        </section>
 
-        <!-- ПАНЕЛЬ: Стратегия -->
-        <div class="tab-panel" id="panel-strategy" role="tabpanel">
-            <div class="strategy-toolbar">
-                <div class="strategy-tabs">
-                    <button class="strategy-tab active" data-mode="tree">
-                        <i class="fas fa-sitemap"></i> Дерево
-                    </button>
-                    <button class="strategy-tab" data-mode="journal">
-                        <i class="fas fa-book"></i> Дневник
-                    </button>
-                    <button class="strategy-tab" data-mode="chart">
-                        <i class="fas fa-chart-line"></i> График
+        <!-- ========== ПАНЕЛЬ: Словарь ========== -->
+        <section class="panel" id="panel-dictionary">
+            <div class="dict-hero" id="wordOfDay" hidden>
+                <div class="dict-hero-left">
+                    <div class="dict-hero-label">Слово дня</div>
+                    <h2 class="dict-hero-word" id="wodWord"></h2>
+                    <div class="dict-hero-meaning" id="wodMeaning"></div>
+                    <button class="btn-soft btn-mini" id="wodToggle">
+                        <span>Развернуть</span>
+                        <i class="fas fa-chevron-down"></i>
                     </button>
                 </div>
-                <div class="strategy-actions">
-                    <button class="btn-mini" id="strategyCalcBtn">
-                        <i class="fas fa-calculator"></i> Калькуляторы
-                    </button>
-                    <button class="btn-mini btn-accent" id="addMainGoalBtn">
-                        <i class="fas fa-plus"></i> Новая цель
-                    </button>
-                </div>
+                <div class="dict-hero-meta" id="wodMeta"></div>
             </div>
 
-            <div class="strategy-panel active" id="strategy-tree">
-                <div class="tree-list" id="treeList"></div>
-            </div>
-
-            <div class="strategy-panel" id="strategy-journal">
-                <div class="journal-quick">
-                    <select class="journal-goal-select" id="journalGoalSelect">
-                        <option value="">Без привязки к цели</option>
-                    </select>
-                    <input type="text" id="journalQuickInput" class="journal-quick-input" placeholder="Как прошёл день? Что чувствуешь?">
-                    <select class="journal-mood-select" id="journalMoodSelect"></select>
-                    <button class="btn-mini btn-accent" id="journalQuickAdd">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-                <div class="journal-list" id="journalList"></div>
-            </div>
-
-            <div class="strategy-panel" id="strategy-chart">
-                <div class="chart-goal-picker">
-                    <label class="chart-picker-label">Цель:</label>
-                    <select id="chartGoalSelect" class="chart-goal-select"></select>
-                </div>
-                <div class="chart-wrap">
-                    <div class="chart-svg-wrap">
-                        <svg id="progressChart" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet"></svg>
-                    </div>
-                    <div class="chart-legend" id="chartLegend"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ПАНЕЛЬ: Словарь -->
-        <div class="tab-panel" id="panel-dictionary" role="tabpanel">
-            <div class="study-mode" id="studyMode" hidden>
-                <div class="study-header">
-                    <button class="btn-mini" id="studyExitBtn">
+            <!-- Режим изучения -->
+            <div class="study" id="studyMode" hidden>
+                <div class="study-head">
+                    <button class="btn-soft btn-mini" id="studyExitBtn">
                         <i class="fas fa-arrow-left"></i> Выйти
                     </button>
-                    <div class="study-progress-info">
-                        <span id="studyCounter">0 / 0</span>
-                    </div>
+                    <div class="study-counter" id="studyCounter">0 / 0</div>
                 </div>
-
-                <div class="study-progress-bar">
+                <div class="study-progress">
                     <div class="study-progress-fill" id="studyProgressFill"></div>
                 </div>
 
                 <div class="study-card" id="studyCard">
-                    <div class="study-card-category" id="studyCategory">—</div>
-                    <div class="study-card-word" id="studyWord">—</div>
-                    <div class="study-card-meaning" id="studyMeaning" hidden>—</div>
-                    <button class="btn-show-meaning" id="showMeaningBtn">
+                    <div class="study-cat" id="studyCategory">—</div>
+                    <div class="study-word" id="studyWord">—</div>
+                    <div class="study-meaning" id="studyMeaning" hidden>—</div>
+                    <button class="btn-primary" id="showMeaningBtn">
                         <i class="fas fa-eye"></i> Показать значение
                     </button>
                 </div>
 
                 <div class="study-actions" id="studyActions" hidden>
-                    <button class="btn-study btn-review" id="reviewBtn">
+                    <button class="btn-review" id="reviewBtn">
                         <i class="fas fa-redo"></i> Повторить
                     </button>
-                    <button class="btn-study btn-know" id="knowBtn">
+                    <button class="btn-know" id="knowBtn">
                         <i class="fas fa-check"></i> Знаю
                     </button>
                 </div>
 
-                <div class="study-finished" id="studyFinished" hidden>
-                    <div class="study-finished-icon">🎉</div>
-                    <div class="study-finished-title">Сессия завершена!</div>
-                    <div class="study-finished-stats" id="studyFinishedStats"></div>
-                    <button class="btn-calc" id="studyRestartBtn">
-                        <i class="fas fa-redo"></i> Пройти ещё раз
+                <div class="study-done" id="studyFinished" hidden>
+                    <div class="study-done-icon">✓</div>
+                    <h3>Сессия завершена</h3>
+                    <div class="study-done-stats" id="studyFinishedStats"></div>
+                    <button class="btn-primary" id="studyRestartBtn">
+                        <i class="fas fa-redo"></i> Ещё раз
                     </button>
                 </div>
             </div>
 
             <div id="dictionaryMain">
-                <div class="word-of-day" id="wordOfDay" hidden>
-                    <div class="word-of-day-label">
-                        <i class="fas fa-lightbulb"></i> Слово дня
-                    </div>
-                    <div class="word-of-day-word" id="wodWord"></div>
-                    <div class="word-of-day-meaning" id="wodMeaning"></div>
-                    <button class="btn-show-more" id="wodToggle">
-                        <span>Показать полностью</span>
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                    <div class="word-of-day-meta" id="wodMeta"></div>
-                </div>
-
-                <div class="section section-full">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <i class="fas fa-book-open"></i>
-                            <span>Мой словарь</span>
+                <div class="block">
+                    <header class="block-head">
+                        <div>
+                            <h2 class="block-title">Мой словарь</h2>
+                            <p class="block-sub" id="dictCount">0 слов</p>
                         </div>
-                        <div class="header-actions-inline">
-                            <span class="count-badge" id="dictCount">0 слов</span>
-                            <button class="btn-mini" id="addWordBtn">
-                                <i class="fas fa-plus"></i> Добавить слово
-                            </button>
-                            <button class="btn-mini" id="studyStartBtn">
+                        <div class="block-actions">
+                            <button class="btn-soft" id="studyStartBtn">
                                 <i class="fas fa-graduation-cap"></i> Учить
                             </button>
-                            <button class="btn-mini" id="exportDictCsvBtn">
-                                <i class="fas fa-file-csv"></i> CSV
+                            <button class="btn-soft" id="exportDictCsvBtn">
+                                <i class="fas fa-file-csv"></i>
+                            </button>
+                            <button class="btn-primary" id="addWordBtn">
+                                <i class="fas fa-plus"></i> Слово
                             </button>
                         </div>
-                    </div>
+                    </header>
 
                     <div class="dict-toolbar">
-                        <div class="dict-search-wrap">
+                        <div class="search">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="dictSearch" class="dict-search" placeholder="Поиск по слову или значению...">
+                            <input type="text" id="dictSearch" class="input" placeholder="Поиск по слову или значению...">
                         </div>
-                        <button class="dict-filter-btn active" data-filter="all">
-                            <i class="fas fa-list"></i> Все
-                        </button>
-                        <button class="dict-filter-btn" data-filter="favorite">
-                            <i class="fas fa-star"></i> Избранное
-                        </button>
-                        <button class="dict-filter-btn" data-filter="review">
-                            <i class="fas fa-redo"></i> Повторить
-                        </button>
+                        <div class="chips-row">
+                            <button class="chip active" data-filter="all">Все</button>
+                            <button class="chip" data-filter="favorite">Избранные</button>
+                            <button class="chip" data-filter="review">Повторить</button>
+                        </div>
                     </div>
 
-                    <div class="dict-categories" id="dictCategories"></div>
+                    <div class="dict-cats" id="dictCategories"></div>
                     <div class="dict-list" id="dictList"></div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- ПАНЕЛЬ: Статистика -->
-        <div class="tab-panel" id="panel-stats" role="tabpanel">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-check-double"></i></div>
-                    <div class="stat-value" id="statCompletedWeek">0</div>
-                    <div class="stat-label">Задач выполнено за 7 дней</div>
+        <!-- ========== ПАНЕЛЬ: Статистика ========== -->
+        <section class="panel" id="panel-stats">
+            <div class="kpi-grid">
+                <div class="kpi">
+                    <div class="kpi-label">Задач выполнено · 7 дней</div>
+                    <div class="kpi-value" id="statCompletedWeek">0</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-list"></i></div>
-                    <div class="stat-value" id="statCreatedWeek">0</div>
-                    <div class="stat-label">Задач создано за 7 дней</div>
+                <div class="kpi">
+                    <div class="kpi-label">Задач создано · 7 дней</div>
+                    <div class="kpi-value" id="statCreatedWeek">0</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-sitemap"></i></div>
-                    <div class="stat-value" id="statGoalsActive">0</div>
-                    <div class="stat-label">Активных целей</div>
+                <div class="kpi">
+                    <div class="kpi-label">Активных целей</div>
+                    <div class="kpi-value" id="statGoalsActive">0</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-book"></i></div>
-                    <div class="stat-value" id="statWordsTotal">0</div>
-                    <div class="stat-label">Слов в словаре</div>
+                <div class="kpi">
+                    <div class="kpi-label">Слов в словаре</div>
+                    <div class="kpi-value" id="statWordsTotal">0</div>
                 </div>
             </div>
 
-            <div class="chart-section">
-                <h3 class="chart-title">
-                    <i class="fas fa-chart-column"></i> Активность за неделю
-                </h3>
-                <div class="chart" id="weekChart"></div>
+            <div class="block">
+                <header class="block-head">
+                    <h2 class="block-title">Активность за неделю</h2>
+                </header>
+                <div class="week-chart" id="weekChart"></div>
             </div>
-        </div>
+        </section>
 
+        <!-- FOOTER -->
         <footer class="app-footer">
-            <div>© TaskFlow · Данные хранятся локально</div>
+            <span>© TaskFlow · Данные хранятся только на устройстве</span>
             <div class="footer-actions">
-                <button class="footer-btn" id="exportBtn">
-                    <i class="fas fa-file-export"></i> Экспорт
-                </button>
-                <button class="footer-btn" id="importBtn">
-                    <i class="fas fa-file-import"></i> Импорт
-                </button>
-                <input type="file" id="importInput" accept="application/json" hidden>
-                <button class="footer-btn" id="resetTasksBtn">
-                    <i class="fas fa-undo-alt"></i> Сброс задач
-                </button>
-                <button class="footer-btn" id="resetHabitsBtn">
-                    <i class="fas fa-undo-alt"></i> Сброс привычек
-                </button>
+                <button class="ghost-btn" id="resetTasksBtn"><i class="fas fa-undo"></i> Задачи</button>
+                <button class="ghost-btn" id="resetHabitsBtn"><i class="fas fa-undo"></i> Привычки</button>
             </div>
         </footer>
     </div>
 
-    <!-- Модалка: общая -->
-    <div class="modal-overlay" id="modalOverlay" hidden>
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-            <h3 class="modal-title" id="modalTitle">Редактирование</h3>
-            <input type="text" id="modalInput" class="modal-input" placeholder="Название">
-            <div id="modalExtra"></div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="modalCancel" type="button">Отмена</button>
-                <button class="btn btn-primary" id="modalSave" type="button">Сохранить</button>
-            </div>
+    <!-- Модалка универсальная -->
+    <div class="modal" id="modalOverlay" hidden>
+        <div class="modal-body">
+            <header class="modal-head">
+                <h3 id="modalTitle">Редактирование</h3>
+                <button class="icon-btn" id="modalCloseBtn"><i class="fas fa-times"></i></button>
+            </header>
+            <input type="text" id="modalInput" class="input" placeholder="Название">
+            <div id="modalExtra" class="modal-extra"></div>
+            <footer class="modal-foot">
+                <button class="btn-soft" id="modalCancel">Отмена</button>
+                <button class="btn-primary" id="modalSave">Сохранить</button>
+            </footer>
         </div>
     </div>
 
-    <!-- Модалка: калькуляторы -->
-    <div class="modal-overlay" id="calcModalOverlay" hidden>
-        <div class="modal modal-wide" role="dialog" aria-modal="true">
-            <div class="modal-header-row">
-                <h3 class="modal-title">Калькуляторы</h3>
-                <button class="icon-btn" id="calcModalClose" aria-label="Закрыть">
-                    <i class="fas fa-times"></i>
-                </button>
+    <!-- Модалка калькуляторов -->
+    <div class="modal" id="calcModalOverlay" hidden>
+        <div class="modal-body modal-wide">
+            <header class="modal-head">
+                <h3>Калькуляторы</h3>
+                <button class="icon-btn" id="calcModalClose"><i class="fas fa-times"></i></button>
+            </header>
+
+            <div class="calc-tabs">
+                <button class="chip active" data-calc="money"><i class="fas fa-coins"></i> Накопления</button>
+                <button class="chip" data-calc="book"><i class="fas fa-book"></i> Книга</button>
             </div>
 
-            <div class="calc-switcher">
-                <button class="calc-tab active" data-calc="money">
-                    <i class="fas fa-coins"></i> Накопления
-                </button>
-                <button class="calc-tab" data-calc="book">
-                    <i class="fas fa-book"></i> Книга
-                </button>
-            </div>
-
-            <div class="calc-form active" id="calc-money">
+            <div class="calc-pane active" id="calc-money">
                 <div class="calc-grid">
-                    <div class="calc-field">
-                        <label class="calc-label">Сумма</label>
-                        <input type="number" id="moneyAmount" class="calc-input" placeholder="500" value="500" min="1">
-                    </div>
-                    <div class="calc-field">
-                        <label class="calc-label">Периодичность</label>
-                        <select id="moneyPeriod" class="calc-input">
+                    <label class="field">
+                        <span>Сумма</span>
+                        <input type="number" id="moneyAmount" class="input" value="500" min="1">
+                    </label>
+                    <label class="field">
+                        <span>Периодичность</span>
+                        <select id="moneyPeriod" class="input">
                             <option value="day">В день</option>
                             <option value="week">В неделю</option>
                             <option value="month" selected>В месяц</option>
                             <option value="year">В год</option>
                         </select>
-                    </div>
-                    <div class="calc-field">
-                        <label class="calc-label">Цель, ₽ <span class="calc-optional">(опц.)</span></label>
-                        <input type="number" id="moneyGoal" class="calc-input" placeholder="100000" min="0">
-                    </div>
+                    </label>
+                    <label class="field">
+                        <span>Цель, ₽</span>
+                        <input type="number" id="moneyGoal" class="input" placeholder="100000" min="0">
+                    </label>
                 </div>
-                <button class="btn-calc" id="calcMoneyBtn">
+                <button class="btn-primary" id="calcMoneyBtn">
                     <i class="fas fa-calculator"></i> Рассчитать
                 </button>
                 <div class="calc-result" id="moneyResult" hidden></div>
             </div>
 
-            <div class="calc-form" id="calc-book">
+            <div class="calc-pane" id="calc-book">
                 <div class="calc-grid">
-                    <div class="calc-field">
-                        <label class="calc-label">Страниц в книге</label>
-                        <input type="number" id="bookTotal" class="calc-input" placeholder="300" value="300" min="1">
-                    </div>
-                    <div class="calc-field">
-                        <label class="calc-label">Читаю</label>
-                        <input type="number" id="bookAmount" class="calc-input" placeholder="15" value="15" min="1">
-                    </div>
-                    <div class="calc-field">
-                        <label class="calc-label">Периодичность</label>
-                        <select id="bookPeriod" class="calc-input">
-                            <option value="day" selected>Страниц в день</option>
-                            <option value="week">Страниц в неделю</option>
-                            <option value="month">Страниц в месяц</option>
+                    <label class="field">
+                        <span>Страниц</span>
+                        <input type="number" id="bookTotal" class="input" value="300" min="1">
+                    </label>
+                    <label class="field">
+                        <span>Читаю</span>
+                        <input type="number" id="bookAmount" class="input" value="15" min="1">
+                    </label>
+                    <label class="field">
+                        <span>Периодичность</span>
+                        <select id="bookPeriod" class="input">
+                            <option value="day" selected>В день</option>
+                            <option value="week">В неделю</option>
+                            <option value="month">В месяц</option>
                         </select>
-                    </div>
+                    </label>
                 </div>
-                <button class="btn-calc" id="calcBookBtn">
+                <button class="btn-primary" id="calcBookBtn">
                     <i class="fas fa-calculator"></i> Рассчитать
                 </button>
                 <div class="calc-result" id="bookResult" hidden></div>
@@ -482,6 +499,7 @@
         </div>
     </div>
 
+    <!-- Toast -->
     <div class="toast" id="toast"></div>
 
     <script src="script.js"></script>
