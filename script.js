@@ -2,16 +2,19 @@
     'use strict';
 
     /* ========== KEYS ========== */
-    const TASKS_KEY    = 'taskflow_tasks_v1';
-    const HABITS_KEY   = 'taskflow_habits_v1';
-    const ORDERS_KEY   = 'taskflow_orders_v1';
-    const GOALS_KEY    = 'taskflow_goals_v2';
-    const JOURNAL_KEY  = 'taskflow_journal_v1';
-    const DICT_KEY     = 'taskflow_dictionary_v1';
-    const WOD_KEY      = 'taskflow_wordoftheday_v1';
-    const STUDY_KEY    = 'taskflow_studystats_v1';
-    const NOTIFIED_KEY = 'taskflow_notified_ids';
-    const PRIMARY_GOAL_KEY = 'taskflow_primary_goal_v1';
+    const TASKS_KEY          = 'taskflow_tasks_v1';
+    const HABITS_KEY         = 'taskflow_habits_v1';
+    const ORDERS_KEY         = 'taskflow_orders_v1';
+    const GOALS_KEY          = 'taskflow_goals_v2';
+    const JOURNAL_KEY        = 'taskflow_journal_v1';
+    const DICT_KEY           = 'taskflow_dictionary_v1';
+    const WOD_KEY            = 'taskflow_wordoftheday_v1';
+    const STUDY_KEY          = 'taskflow_studystats_v1';
+    const DIARY_KEY          = 'taskflow_diary_v1';
+    const NOTIFIED_KEY       = 'taskflow_notified_ids';
+    const PRIMARY_GOAL_KEY   = 'taskflow_primary_goal_v1';
+    const THEME_KEY          = 'taskflow_theme_v1';
+    const DAILY_REMINDER_KEY = 'taskflow_daily_reminder_v1';
 
     const DAY_MS = 86400000;
     const WEEK_DAYS = 7;
@@ -47,6 +50,7 @@
     let goals = [];
     let journal = [];
     let dict = [];
+    let diary = [];
     let wod = { date: null, wordId: null };
     let studyStats = { streak: 0, lastStudy: null };
     let currentFilter = 'all';
@@ -60,8 +64,11 @@
     let editingWord = null;
     let editingGoal = null;
     let editingJournal = null;
+    let editingDiary = null;
     let notifiedIds = new Set();
     const collapsedGoals = new Set();
+
+    let diarySearchQuery = '';
 
     // Chart swipe state
     let viewRange = null;
@@ -73,9 +80,19 @@
 
     let study = { active: false, queue: [], index: 0, knowCount: 0, reviewCount: 0 };
 
+    // Ежедневное напоминание
+    let dailyReminder = {
+        enabled: true,
+        hour: 13,
+        minute: 0,
+        lastFiredDate: null
+    };
+    let dailyReminderTimer = null;
+
     /* ========== DOM ========== */
     const $ = (id) => document.getElementById(id);
 
+    // Planner
     const taskInput = $('taskInput');
     const taskDate = $('taskDate');
     const taskRepeat = $('taskRepeat');
@@ -88,6 +105,7 @@
     const habitListEl = $('habitList');
     const habitSubtitle = $('habitSubtitle');
 
+    // Orders
     const ordersBodyEl = $('ordersBody');
     const ordersCardsEl = $('ordersCards');
     const ordersSummaryEl = $('ordersSummary');
@@ -95,6 +113,7 @@
     const addOrderBtn = $('addOrderBtn');
     const exportCsvBtn = $('exportCsvBtn');
 
+    // Strategy
     const treeListEl = $('treeList');
     const treeSubtitle = $('treeSubtitle');
     const journalListEl = $('journalList');
@@ -116,6 +135,7 @@
     const chartKpiEl = $('chartKpi');
     const chartInsightEl = $('chartInsight');
 
+    // Dictionary
     const dictListEl = $('dictList');
     const dictCountEl = $('dictCount');
     const dictSearchEl = $('dictSearch');
@@ -146,14 +166,23 @@
     const studyRestartBtn = $('studyRestartBtn');
     const studyCardEl = $('studyCard');
 
-    const resetTasksBtn = $('resetTasksBtn');
-    const resetHabitsBtn = $('resetHabitsBtn');
+    // Diary
+    const diaryListEl = $('diaryList');
+    const diaryListSub = $('diaryListSub');
+    const diarySearchEl = $('diarySearch');
+
+    // Header
+    const themeToggle = $('themeToggle');
+    const themeIcon = $('themeIcon');
+    const installBadge = $('installBadge');
+    const notifyBadge = $('notifyBadge');
     const exportBtn = $('exportBtn');
     const importBtn = $('importBtn');
     const importInput = $('importInput');
-    const installBadge = $('installBadge');
-    const notifyBadge = $('notifyBadge');
+    const resetTasksBtn = $('resetTasksBtn');
+    const resetHabitsBtn = $('resetHabitsBtn');
 
+    // Modal
     const modalOverlay = $('modalOverlay');
     const modalTitle = $('modalTitle');
     const modalInput = $('modalInput');
@@ -277,26 +306,34 @@
         return Math.round(v);
     }
 
-    /* ========== STORAGE ========== */
-    function loadAll() {
-        try {
-            tasks  = readJSON(TASKS_KEY,  defaultTasks());
-            habits = readJSON(HABITS_KEY, defaultHabits());
-            orders = readJSON(ORDERS_KEY, defaultOrders());
-            goals  = readJSON(GOALS_KEY,  defaultGoals());
-            journal= readJSON(JOURNAL_KEY,[]);
-            dict   = readJSON(DICT_KEY,   defaultDict());
-            wod    = readJSON(WOD_KEY,    { date: null, wordId: null });
-            studyStats = readJSON(STUDY_KEY, { streak: 0, lastStudy: null });
-            primaryGoalId = localStorage.getItem(PRIMARY_GOAL_KEY) || null;
-
-            const notified = localStorage.getItem(NOTIFIED_KEY);
-            notifiedIds = notified ? new Set(JSON.parse(notified)) : new Set();
-        } catch (e) {
-            console.error('loadAll error', e);
+    /* ========== THEME ========== */
+    function applyTheme(theme) {
+        document.body.dataset.theme = theme;
+        if (themeIcon) {
+            themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
         }
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'dark' ? '#0e1117' : '#2457d6');
+        try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
     }
 
+    function initTheme() {
+        let saved = 'light';
+        try { saved = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) {}
+        if (!localStorage.getItem(THEME_KEY)) {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                saved = 'dark';
+            }
+        }
+        applyTheme(saved);
+    }
+
+    themeToggle.addEventListener('click', () => {
+        const current = document.body.dataset.theme || 'light';
+        applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+
+    /* ========== STORAGE ========== */
     function readJSON(key, fallback) {
         try {
             const raw = localStorage.getItem(key);
@@ -306,15 +343,38 @@
         } catch (e) { return fallback; }
     }
 
+    function loadAll() {
+        try {
+            tasks  = readJSON(TASKS_KEY,  defaultTasks());
+            habits = readJSON(HABITS_KEY, defaultHabits());
+            orders = readJSON(ORDERS_KEY, defaultOrders());
+            goals  = readJSON(GOALS_KEY,  defaultGoals());
+            journal= readJSON(JOURNAL_KEY,[]);
+            dict   = readJSON(DICT_KEY,   defaultDict());
+            diary  = readJSON(DIARY_KEY,  []);
+            wod    = readJSON(WOD_KEY,    { date: null, wordId: null });
+            studyStats = readJSON(STUDY_KEY, { streak: 0, lastStudy: null });
+            primaryGoalId = localStorage.getItem(PRIMARY_GOAL_KEY) || null;
+            dailyReminder = readJSON(DAILY_REMINDER_KEY, { enabled: true, hour: 13, minute: 0, lastFiredDate: null });
+
+            const notified = localStorage.getItem(NOTIFIED_KEY);
+            notifiedIds = notified ? new Set(JSON.parse(notified)) : new Set();
+        } catch (e) {
+            console.error('loadAll error', e);
+        }
+    }
+
     function saveTasks()  { try { localStorage.setItem(TASKS_KEY, JSON.stringify(tasks)); } catch (e) { showToast('Хранилище заполнено', 'fa-triangle-exclamation'); } }
     function saveHabits() { try { localStorage.setItem(HABITS_KEY, JSON.stringify(habits)); } catch (e) { showToast('Хранилище заполнено', 'fa-triangle-exclamation'); } }
     function saveOrders() { try { localStorage.setItem(ORDERS_KEY, JSON.stringify(orders)); } catch (e) { showToast('Хранилище заполнено', 'fa-triangle-exclamation'); } }
     function saveGoals()  { try { localStorage.setItem(GOALS_KEY, JSON.stringify(goals)); } catch (e) { showToast('Хранилище заполнено', 'fa-triangle-exclamation'); } }
     function saveJournal(){ try { localStorage.setItem(JOURNAL_KEY, JSON.stringify(journal)); } catch (e) { showToast('Хранилище заполнено', 'fa-triangle-exclamation'); } }
     function saveDict()   { try { localStorage.setItem(DICT_KEY, JSON.stringify(dict)); } catch (e) { showToast('Хранилище заполнено', 'fa-triangle-exclamation'); } }
+    function saveDiary()  { try { localStorage.setItem(DIARY_KEY, JSON.stringify(diary)); } catch (e) { showToast('Хранилище заполнено', 'fa-triangle-exclamation'); } }
     function saveWod()    { try { localStorage.setItem(WOD_KEY, JSON.stringify(wod)); } catch (e) {} }
     function saveStudyStats() { try { localStorage.setItem(STUDY_KEY, JSON.stringify(studyStats)); } catch (e) {} }
     function saveNotified()   { try { localStorage.setItem(NOTIFIED_KEY, JSON.stringify([...notifiedIds])); } catch (e) {} }
+    function saveDailyReminder() { try { localStorage.setItem(DAILY_REMINDER_KEY, JSON.stringify(dailyReminder)); } catch (e) {} }
     function savePrimaryGoal() {
         try {
             if (primaryGoalId) localStorage.setItem(PRIMARY_GOAL_KEY, primaryGoalId);
@@ -322,6 +382,7 @@
         } catch (e) {}
     }
 
+    /* ========== DEFAULT DATA ========== */
     function defaultTasks() {
         return [
             { id: generateId(), text: 'Изучить новый фреймворк', completed: false, createdAt: Date.now(), completedAt: null, deadline: null, repeat: 'none', lastReset: null },
@@ -456,10 +517,9 @@
             if (permission === 'granted') {
                 updateNotifyBadge();
                 showToast('Уведомления включены');
-                try {
-                    new Notification('TaskFlow', { body: 'Уведомления активированы', icon: 'icons/web-app-manifest-192x192.png' });
-                } catch (e) {}
+                await sendNotification('TaskFlow', { body: 'Уведомления активированы' });
                 checkDeadlines();
+                checkDailyReminder();
             } else {
                 showToast('Разрешение не получено', 'fa-bell-slash');
             }
@@ -469,6 +529,37 @@
     function updateNotifyBadge() {
         if (!notificationSupported()) { notifyBadge.hidden = true; return; }
         notifyBadge.hidden = Notification.permission === 'granted';
+    }
+
+    async function sendNotification(title, options = {}) {
+        if (!notificationSupported() || Notification.permission !== 'granted') return;
+
+        const fullOptions = {
+            icon: 'icons/web-app-manifest-192x192.png',
+            badge: 'icons/web-app-manifest-192x192.png',
+            ...options
+        };
+
+        // Сначала пробуем через Service Worker (работает в фоне)
+        try {
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.ready;
+                if (reg && reg.showNotification) {
+                    await reg.showNotification(title, fullOptions);
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('SW showNotification failed, fallback', e);
+        }
+
+        // Fallback
+        try {
+            const n = new Notification(title, fullOptions);
+            n.onclick = () => { window.focus(); n.close(); };
+        } catch (e) {
+            console.warn('Notification failed', e);
+        }
     }
 
     function checkDeadlines() {
@@ -485,7 +576,7 @@
 
             if ((isToday || isOverdue) && !notifiedIds.has(key)) {
                 const str = new Date(dl).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-                sendNotification(isOverdue ? '⚠️ Задача просрочена' : '📌 Напоминание', {
+                sendNotification(isOverdue ? 'Задача просрочена' : 'Напоминание', {
                     body: isOverdue ? `«${task.text}» — дедлайн был ${str}` : `«${task.text}» — дедлайн сегодня`,
                     tag: task.id
                 });
@@ -495,12 +586,49 @@
         saveNotified();
     }
 
-    function sendNotification(title, options = {}) {
+    /* ========== ЕЖЕДНЕВНОЕ НАПОМИНАНИЕ ========== */
+    function checkDailyReminder() {
+        if (!dailyReminder.enabled) return;
         if (!notificationSupported() || Notification.permission !== 'granted') return;
-        try {
-            const n = new Notification(title, { icon: 'icons/web-app-manifest-192x192.png', ...options });
-            n.onclick = () => { window.focus(); n.close(); };
-        } catch (e) {}
+
+        const now = new Date();
+        const todayStrLocal = now.toISOString().slice(0, 10);
+
+        // Уже отправляли сегодня?
+        if (dailyReminder.lastFiredDate === todayStrLocal) return;
+
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const targetMinutes = dailyReminder.hour * 60 + dailyReminder.minute;
+
+        if (currentMinutes >= targetMinutes) {
+            const activeTasks = tasks.filter(t => !t.completed).length;
+            const completedToday = tasks.filter(t => t.completed && isCompletedToday(t.completedAt)).length;
+
+            let body = 'Как дела? Не забудь записать задачи на сегодня';
+            if (activeTasks > 0) {
+                body = `У тебя ${activeTasks} ${pluralize(activeTasks, 'активная задача', 'активные задачи', 'активных задач')}`;
+            }
+            if (completedToday > 0) {
+                body = `Сегодня уже закрыто ${completedToday}. Продолжай!`;
+            }
+
+            sendNotification('TaskFlow · 13:00', {
+                body,
+                tag: 'daily-reminder',
+                requireInteraction: false
+            });
+
+            dailyReminder.lastFiredDate = todayStrLocal;
+            saveDailyReminder();
+        }
+    }
+
+    function startDailyReminder() {
+        if (dailyReminderTimer) clearInterval(dailyReminderTimer);
+        // Проверяем каждую минуту
+        dailyReminderTimer = setInterval(checkDailyReminder, 60 * 1000);
+        // И сразу при запуске — через 3 секунды
+        setTimeout(checkDailyReminder, 3000);
     }
 
     /* ============================================================
@@ -918,7 +1046,7 @@
     }
 
     /* ============================================================
-       STRATEGY · CHART HERO (свайп + фокус + brusher)
+       STRATEGY · CHART
        ============================================================ */
     function getChartEntries() {
         const goal = getPrimaryGoal();
@@ -962,7 +1090,7 @@
                 <foreignObject x="0" y="0" width="100%" height="100%">
                     <div xmlns="http://www.w3.org/1999/xhtml" class="chart-empty">
                         <i class="fas fa-chart-line"></i>
-                        <div>Пока нет данных. Запиши прогресс в дневник — график появится</div>
+                        <div>Пока нет данных. Запиши прогресс в дневник пути — график появится</div>
                     </div>
                 </foreignObject>
             `;
@@ -971,18 +1099,15 @@
             return;
         }
 
-        // Диапазон всей шкалы
         const firstDate = entries[0].date;
         const lastDate = Math.max(goal.deadline || 0, Date.now(), entries[entries.length - 1].date);
         const fullStart = firstDate - 1 * DAY_MS;
         const fullEnd = lastDate + 1 * DAY_MS;
 
-        // Если viewRange вне диапазона или не задан — сбрасываем
         if (!viewRange || viewRange.start < fullStart || viewRange.end > fullEnd || viewRange.end - viewRange.start < DAY_MS) {
             viewRange = { start: fullStart, end: fullEnd };
         }
 
-        // Фильтр периода переопределяет окно
         if (chartPeriod === '7') {
             viewRange = { start: Date.now() - 7 * DAY_MS, end: Date.now() + 1 * DAY_MS };
         } else if (chartPeriod === '30') {
@@ -997,7 +1122,6 @@
         const minDate = viewRange.start;
         const maxDate = viewRange.end;
 
-        // Видимые точки для шкалы Y
         const visibleEntries = entries.filter(e => e.date >= minDate && e.date <= maxDate);
         const scaleEntries = visibleEntries.length ? visibleEntries : entries;
 
@@ -1007,7 +1131,6 @@
         const xFor = (d) => pad.left + ((d - minDate) / (maxDate - minDate)) * chartW;
         const yFor = (v) => pad.top + chartH - (v / maxVal) * chartH;
 
-        // Сетка Y
         let gridSvg = '';
         for (let i = 0; i <= 4; i++) {
             const y = pad.top + (chartH / 4) * i;
@@ -1016,7 +1139,6 @@
             gridSvg += `<text class="chart-axis-text" x="${pad.left - 10}" y="${y + 4}" text-anchor="end">${shortMoney(val)}</text>`;
         }
 
-        // Сетка X
         const totalDays = Math.max(1, Math.round((maxDate - minDate) / DAY_MS));
         const stepDays = Math.max(1, Math.ceil(totalDays / 6));
         let xLabels = '';
@@ -1032,22 +1154,18 @@
             <line class="chart-axis-line" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${pad.top + chartH}" />
         `;
 
-        // Линия цели
         let targetLine = '';
         if (goal.amount) {
             const y = yFor(goal.amount);
             if (y >= pad.top && y <= pad.top + chartH) {
                 targetLine = `
                     <line class="chart-target-line" x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" />
-                    <text class="chart-axis-text" x="${W - pad.right}" y="${y - 6}" text-anchor="end" fill="#d4a24c">цель ${formatMoney(goal.amount)} ₽</text>
+                    <text class="chart-axis-text" x="${W - pad.right}" y="${y - 6}" text-anchor="end" fill="#2457d6">цель ${formatMoney(goal.amount)} ₽</text>
                 `;
             }
         }
 
-        // Точки
         const points = entries.map(e => ({ x: xFor(e.date), y: yFor(e.value), v: e.value, d: e.date }));
-
-        // Только точки в окне (с запасом 3 дня)
         const pointsInWindow = points.filter(p => p.d >= minDate - 3 * DAY_MS && p.d <= maxDate + 3 * DAY_MS);
 
         const linePath = smoothPath(pointsInWindow);
@@ -1056,7 +1174,6 @@
             ? `${linePath} L ${pointsInWindow[pointsInWindow.length - 1].x},${pad.top + chartH} L ${pointsInWindow[0].x},${pad.top + chartH} Z`
             : '';
 
-        // Прогноз
         let forecastSvg = '';
         if (goal.amount && goal.deadline && goal.deadline > entries[entries.length - 1].date) {
             const last = points[points.length - 1];
@@ -1064,11 +1181,10 @@
             const ty = yFor(goal.amount);
             if (tx >= pad.left - 5 && tx <= W - pad.right + 5) {
                 forecastSvg = `<path class="chart-forecast" d="M ${last.x} ${last.y} L ${tx} ${ty}" />`;
-                forecastSvg += `<circle cx="${tx}" cy="${ty}" r="4" fill="none" stroke="#d4a24c" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.7" />`;
+                forecastSvg += `<circle cx="${tx}" cy="${ty}" r="4" fill="none" stroke="#2457d6" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.7" />`;
             }
         }
 
-        // Точки-кружки
         let dotsSvg = '';
         const lastEntryDate = entries[entries.length - 1].date;
         pointsInWindow.forEach(p => {
@@ -1077,7 +1193,6 @@
             dotsSvg += `<circle class="${cls}" cx="${p.x}" cy="${p.y}" r="${isLast ? 6 : 4}" />`;
         });
 
-        // Подпись последней видимой
         const nowPoints = pointsInWindow.filter(p => p.d <= Date.now());
         const lastVisible = nowPoints[nowPoints.length - 1];
         if (lastVisible) {
@@ -1087,9 +1202,9 @@
         heroChartEl.innerHTML = `
             <defs>
                 <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#d4a24c" stop-opacity="0.35"/>
-                    <stop offset="60%" stop-color="#d4a24c" stop-opacity="0.06"/>
-                    <stop offset="100%" stop-color="#d4a24c" stop-opacity="0"/>
+                    <stop offset="0%" stop-color="#2457d6" stop-opacity="0.3"/>
+                    <stop offset="60%" stop-color="#2457d6" stop-opacity="0.05"/>
+                    <stop offset="100%" stop-color="#2457d6" stop-opacity="0"/>
                 </linearGradient>
             </defs>
             ${gridSvg}
@@ -1110,13 +1225,8 @@
             </g>
         `;
 
-        // Управление свайпом
         setupChartSwipe(entries, pad, chartW, chartH, W, xFor, yFor);
-
-        // Brusher
         renderBrusher(entries, fullStart, fullEnd);
-
-        // Инсайт
         renderChartInsight(goal, entries);
     }
 
@@ -1141,10 +1251,10 @@
         return d;
     }
 
-    /* ---------- Свайп по графику ---------- */
     function setupChartSwipe(entries, pad, chartW, chartH, W, xFor, yFor) {
         const wrap = heroChartEl.parentElement;
         const focusGroup = document.getElementById('chartFocusGroup');
+        if (!focusGroup) return;
         const focusLine = focusGroup.querySelector('.chart-focus-line');
         const focusDot = focusGroup.querySelector('.chart-focus-dot');
         const focusLabel = focusGroup.querySelector('.chart-focus-label');
@@ -1164,7 +1274,6 @@
 
             const dateAtX = viewRange.start + ((svgX - pad.left) / chartW) * (viewRange.end - viewRange.start);
 
-            // Ближайшая точка
             let nearest = null, minDist = Infinity;
             entries.forEach(e => {
                 const d = Math.abs(e.date - dateAtX);
@@ -1192,11 +1301,8 @@
             focusGroup.style.display = '';
         }
 
-        function hideFocus() {
-            focusGroup.style.display = 'none';
-        }
+        function hideFocus() { focusGroup.style.display = 'none'; }
 
-        // Обработчики
         function onPointerDown(e) {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             chartPointerId = e.pointerId;
@@ -1204,13 +1310,11 @@
             chartDragMoved = false;
             chartDragStartX = e.clientX;
             chartDragStartRange = { start: viewRange.start, end: viewRange.end };
-
             try { wrap.setPointerCapture(e.pointerId); } catch (err) {}
             wrap.classList.add('dragging');
         }
 
         function onPointerMove(e) {
-            // Если не drag — превью фокуса
             if (!chartIsDragging) {
                 const rect = wrap.getBoundingClientRect();
                 if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
@@ -1221,7 +1325,6 @@
                 return;
             }
 
-            // Drag
             const dx = e.clientX - chartDragStartX;
             if (Math.abs(dx) > 4) chartDragMoved = true;
 
@@ -1244,11 +1347,7 @@
             if (newEnd > fullEnd) { newStart -= newEnd - fullEnd; newEnd = fullEnd; }
 
             viewRange = { start: newStart, end: newEnd };
-
-            // Перерисовка через RAF
-            requestAnimationFrame(() => {
-                renderChartFromViewRange(entries, pad, chartW, chartH, W);
-            });
+            requestAnimationFrame(() => renderChart());
         }
 
         function onPointerUp(e) {
@@ -1265,12 +1364,8 @@
             }
         }
 
-        function onPointerLeave() {
-            if (!chartIsDragging) hideFocus();
-        }
+        function onPointerLeave() { if (!chartIsDragging) hideFocus(); }
 
-        // Снимаем старые обработчики и ставим новые
-        // (перерисовка chart заменяет svg, но wrap остаётся)
         if (!wrap._swipeBound) {
             wrap._swipeBound = true;
             wrap.addEventListener('pointerdown', onPointerDown);
@@ -1278,28 +1373,9 @@
             wrap.addEventListener('pointerup', onPointerUp);
             wrap.addEventListener('pointercancel', onPointerUp);
             wrap.addEventListener('pointerleave', onPointerLeave);
-        } else {
-            // Обновляем замыкания через перепривязку к новым данным
-            wrap._onMove = onPointerMove;
         }
-
-        // Перерисовка без пересоздания обработчиков
-        wrap._currentEntries = entries;
-        wrap._currentPad = pad;
-        wrap._currentChartW = chartW;
-        wrap._currentChartH = chartH;
-        wrap._currentW = W;
-        wrap._currentXFor = xFor;
-        wrap._currentYFor = yFor;
     }
 
-    // Быстрая перерисовка при свайпе (без пересоздания обработчиков)
-    function renderChartFromViewRange(entries, pad, chartW, chartH, W) {
-        // Просто перезапускаем полный renderChart — он лёгкий
-        renderChart();
-    }
-
-    /* ---------- Brusher ---------- */
     function removeBrusher() {
         const existing = document.querySelector('.chart-brusher');
         if (existing) existing.remove();
@@ -1318,7 +1394,7 @@
         const totalSpan = fullEnd - fullStart;
         if (totalSpan <= 0) return;
 
-        const BW = 900, BH = 56;
+        const BW = 900, BH = 52;
         const pad = 4;
 
         const xFor = (d) => pad + ((d - fullStart) / totalSpan) * (BW - 2 * pad);
@@ -1355,7 +1431,6 @@
 
         hero.appendChild(brusher);
 
-        // Клик по brusher — прыгаем в точку
         const brusherSvg = brusher.querySelector('.chart-brusher-svg');
         brusherSvg.addEventListener('click', (e) => {
             if (e.target.classList.contains('chart-brusher-bar')) return;
@@ -1376,7 +1451,6 @@
             renderChart();
         });
 
-        // Перетаскивание окна
         const bar = brusher.querySelector('.chart-brusher-bar');
         let dragging = false;
         let dragStartX = 0;
@@ -1414,7 +1488,6 @@
             try { bar.releasePointerCapture(e.pointerId); } catch (err) {}
         });
 
-        // Сброс
         const resetBtn = brusher.querySelector('#chartResetBtn');
         if (resetBtn) {
             resetBtn.addEventListener('click', () => {
@@ -1428,7 +1501,6 @@
         return new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
     }
 
-    /* ---------- Инсайт под графиком ---------- */
     function renderChartInsight(goal, entries) {
         if (!chartInsightEl) return;
         const current = goal.amountCurrent || (entries.length ? entries[entries.length - 1].value : 0);
@@ -1468,7 +1540,7 @@
     }
 
     /* ============================================================
-       STRATEGY · JOURNAL
+       STRATEGY · JOURNAL (path)
        ============================================================ */
     function renderMoodSelect() {
         if (!journalMoodSelect) return;
@@ -2089,6 +2161,132 @@
     }
 
     /* ============================================================
+       DIARY · простой личный дневник
+       ============================================================ */
+
+    function diaryRenderList() {
+        if (!diaryListEl) return;
+
+        let list = [...diary];
+
+        if (diarySearchQuery) {
+            const q = diarySearchQuery.toLowerCase();
+            list = list.filter(e => (e.text || '').toLowerCase().includes(q));
+        }
+
+        list.sort((a, b) => b.createdAt - a.createdAt);
+
+        if (diaryListSub) {
+            diaryListSub.textContent = list.length === diary.length
+                ? `${diary.length} ${pluralize(diary.length, 'запись', 'записи', 'записей')}`
+                : `${list.length} из ${diary.length}`;
+        }
+
+        if (list.length === 0) {
+            if (diary.length === 0) {
+                diaryListEl.innerHTML = `
+                    <div class="diary-empty">
+                        <div class="diary-empty-icon"><i class="fas fa-feather"></i></div>
+                        <div class="diary-empty-title">Твой дневник пуст</div>
+                        <div class="diary-empty-text">Пиши то, что думаешь, чувствуешь, замечаешь. Никто, кроме тебя, этого не увидит.</div>
+                    </div>
+                `;
+            } else {
+                diaryListEl.innerHTML = emptyState('fa-magnifying-glass', 'Ничего не найдено');
+            }
+            return;
+        }
+
+        diaryListEl.innerHTML = list.map(entry => {
+            const dateObj = new Date(entry.createdAt);
+            const dateMain = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+            const timeStr = dateObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+            return `
+                <div class="diary-post" data-id="${entry.id}">
+                    <div class="diary-post-head">
+                        <div class="diary-post-date">
+                            <span class="diary-post-date-main">${dateMain}</span>
+                            <span class="diary-post-date-time">${timeStr}</span>
+                        </div>
+                        <div class="diary-post-actions">
+                            <button class="icon-btn" data-action="edit-diary" data-id="${entry.id}" title="Редактировать">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="icon-btn danger" data-action="delete-diary" data-id="${entry.id}" title="Удалить">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="diary-post-text">${escapeHtml(entry.text || '')}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function diaryAddEntry(text) {
+        if (!text) return;
+        diary.push({
+            id: generateId(),
+            text: text.trim(),
+            createdAt: Date.now()
+        });
+        saveDiary();
+        diaryRenderList();
+        showToast('Запись добавлена');
+    }
+
+    function diaryDeleteEntry(id) {
+        if (!confirm('Удалить запись?')) return;
+        diary = diary.filter(e => e.id !== id);
+        saveDiary();
+        diaryRenderList();
+        showToast('Удалено', 'fa-trash');
+    }
+
+    function openDiaryEdit(id) {
+        const entry = diary.find(e => e.id === id);
+        if (!entry) return;
+
+        modalTitle.textContent = 'Редактировать запись';
+        modalInput.style.display = 'none';
+        modalInput.value = '';
+        editingDiary = id;
+
+        modalExtra.innerHTML = `
+            <label class="field"><span>Запись</span>
+                <textarea id="dmText" class="input" rows="10" placeholder="Пиши, что на душе...">${escapeHtml(entry.text || '')}</textarea>
+            </label>
+        `;
+
+        modalOverlay.hidden = false;
+        setTimeout(() => $('dmText').focus(), 80);
+    }
+
+    function saveDiaryModal() {
+        const text = $('dmText').value.trim();
+        if (!text) { showToast('Пусто', 'fa-triangle-exclamation'); return; }
+
+        if (editingDiary) {
+            const entry = diary.find(e => e.id === editingDiary);
+            if (entry) {
+                entry.text = text;
+                entry.updatedAt = Date.now();
+            }
+            showToast('Сохранено');
+        }
+
+        saveDiary();
+        diaryRenderList();
+        editingDiary = null;
+        closeModal();
+    }
+
+    function diaryRenderAll() {
+        diaryRenderList();
+    }
+
+    /* ============================================================
        CALCULATORS
        ============================================================ */
     function calcMoney() {
@@ -2186,7 +2384,8 @@
             const habitActs = habits.reduce((s, h) => s + (h.streak > 0 && h.createdAt < end ? 1 : 0), 0);
             const words = dict.filter(w => w.createdAt >= start && w.createdAt < end).length;
             const journ = journal.filter(j => j.date >= start && j.date < end).length;
-            const total = completed + Math.min(habitActs, 5) + words + journ;
+            const diaryCount = diary.filter(d => d.createdAt >= start && d.createdAt < end).length;
+            const total = completed + Math.min(habitActs, 5) + words + journ + diaryCount;
             const date = new Date(start);
             data.push({ label: dayNames[(date.getDay() + 6) % 7], value: total });
         }
@@ -2319,7 +2518,7 @@
 
     function closeModal() {
         modalOverlay.hidden = true;
-        editing = null; editingOrder = null; editingWord = null; editingGoal = null; editingJournal = null;
+        editing = null; editingOrder = null; editingWord = null; editingGoal = null; editingJournal = null; editingDiary = null;
         modalInput.style.display = 'block';
         modalOverlay.dataset.parentId = '';
     }
@@ -2329,6 +2528,7 @@
         if ($('wmWord')) { saveWordModal(); return; }
         if ($('gmTitle')) { saveGoalModal(); return; }
         if ($('jmText')) { saveJournalModal(); return; }
+        if ($('dmText')) { saveDiaryModal(); return; }
 
         if (!editing) return;
         const { type, id } = editing;
@@ -2362,9 +2562,9 @@
        ============================================================ */
     function exportAll() {
         const data = {
-            version: 11,
+            version: 13,
             exportedAt: new Date().toISOString(),
-            tasks, habits, orders, goals, journal, dict,
+            tasks, habits, orders, goals, journal, dict, diary,
             primaryGoalId
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -2390,10 +2590,11 @@
                 if (Array.isArray(data.goals))   goals = data.goals;
                 if (Array.isArray(data.journal)) journal = data.journal;
                 if (Array.isArray(data.dict))    dict = data.dict;
+                if (Array.isArray(data.diary))   diary = data.diary;
                 if (data.primaryGoalId) { primaryGoalId = data.primaryGoalId; savePrimaryGoal(); }
 
                 viewRange = null;
-                saveTasks(); saveHabits(); saveOrders(); saveGoals(); saveJournal(); saveDict();
+                saveTasks(); saveHabits(); saveOrders(); saveGoals(); saveJournal(); saveDict(); saveDiary();
                 renderAll();
                 showToast('Импортировано');
             } catch (err) {
@@ -2504,6 +2705,45 @@
         }
     });
 
+    // Diary events
+    const diaryQuickInput = $('diaryQuickInput');
+    const diaryQuickAdd = $('diaryQuickAdd');
+
+    if (diaryQuickAdd) {
+        diaryQuickAdd.addEventListener('click', () => {
+            const text = diaryQuickInput.value.trim();
+            if (!text) { showToast('Напиши что-нибудь', 'fa-triangle-exclamation'); return; }
+            diaryAddEntry(text);
+            diaryQuickInput.value = '';
+        });
+    }
+
+    if (diaryQuickInput) {
+        diaryQuickInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                diaryQuickAdd.click();
+            }
+        });
+    }
+
+    if (diaryListEl) {
+        diaryListEl.addEventListener('click', (e) => {
+            const t = e.target.closest('[data-action]');
+            if (!t) return;
+            const { action, id } = t.dataset;
+            if (action === 'edit-diary') openDiaryEdit(id);
+            else if (action === 'delete-diary') diaryDeleteEntry(id);
+        });
+    }
+
+    if (diarySearchEl) {
+        diarySearchEl.addEventListener('input', (e) => {
+            diarySearchQuery = e.target.value.trim();
+            diaryRenderList();
+        });
+    }
+
     /* ========== TASK/HABIT ACTIONS ========== */
     function addTask() {
         const text = taskInput.value.trim();
@@ -2585,6 +2825,7 @@
             if (tab.dataset.tab === 'stats') renderStats();
             if (tab.dataset.tab === 'orders') renderOrders();
             if (tab.dataset.tab === 'dictionary') { renderDict(); updateWordOfDay(); }
+            if (tab.dataset.tab === 'diary') diaryRenderAll();
         });
     });
 
@@ -2701,6 +2942,8 @@
         if (e.key === GOALS_KEY)  { loadAll(); renderTree(); renderGoalSelectors(); renderChart(); renderStats(); }
         if (e.key === JOURNAL_KEY){ loadAll(); renderJournal(); renderChart(); }
         if (e.key === DICT_KEY)   { loadAll(); renderDict(); updateWordOfDay(); renderStats(); }
+        if (e.key === DIARY_KEY)  { loadAll(); diaryRenderAll(); }
+        if (e.key === DAILY_REMINDER_KEY) { loadAll(); }
     });
 
     /* ========== PWA ========== */
@@ -2755,6 +2998,7 @@
         if (!document.hidden) {
             processRepeats();
             checkDeadlines();
+            checkDailyReminder();
             renderChart();
         }
     });
@@ -2772,9 +3016,11 @@
         updateWordOfDay();
         renderChart();
         renderStats();
+        diaryRenderAll();
     }
 
     function init() {
+        initTheme();
         loadAll();
         processRepeats();
         renderAll();
@@ -2782,9 +3028,10 @@
         taskDate.min = todayStr();
         updateNotifyBadge();
         checkDeadlines();
+        startDailyReminder();
 
-        console.log('%c⚡ TaskFlow v11', 'font-size:15px;font-weight:bold;color:#d4a24c;');
-        console.log('%cRemaster · swipe chart · brusher · focus', 'color:#7d776f;');
+        console.log('%c⚡ TaskFlow · Office Edition v13', 'font-size:15px;font-weight:bold;color:#2457d6;');
+        console.log('%c+ ежедневное напоминание в 13:00', 'color:#64748b;');
     }
 
     setInterval(processRepeats, 300000);
