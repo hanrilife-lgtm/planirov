@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>TaskFlow · Планировщик, стратегия и словарь</title>
-    <meta name="description" content="Планировщик задач, трекер привычек, стратегия целей, словарь и учёт заказов. Работает офлайн.">
-    <meta name="keywords" content="планировщик, задачи, привычки, стратегия, цели, словарь, фриланс, todo, продуктивность, PWA">
+    <title>TaskFlow · Планировщик, стратегия, дневник</title>
+    <meta name="description" content="Планировщик задач, трекер привычек, стратегия целей, личный дневник, словарь и учёт заказов. Работает офлайн.">
+    <meta name="keywords" content="планировщик, задачи, привычки, стратегия, дневник, словарь, фриланс, продуктивность, PWA">
     <meta name="author" content="TaskFlow">
     <meta name="robots" content="index, follow">
 
@@ -15,15 +15,15 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0e0e10">
+    <meta name="theme-color" content="#2457d6">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="TaskFlow">
     <meta name="mobile-web-app-capable" content="yes">
 
     <meta property="og:type" content="website">
     <meta property="og:title" content="TaskFlow">
-    <meta property="og:description" content="Планировщик, стратегия и словарь в одном месте.">
+    <meta property="og:description" content="Планировщик, стратегия, дневник и словарь в одном месте.">
     <meta property="og:image" content="icons/web-app-manifest-512x512.png">
     <meta property="og:site_name" content="TaskFlow">
 
@@ -34,27 +34,34 @@
 
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-theme="light">
     <div class="app">
         <!-- HEADER -->
         <header class="app-header">
             <div class="brand">
                 <div class="brand-mark">
-                    <svg viewBox="0 0 24 24" fill="none" width="22" height="22">
+                    <svg viewBox="0 0 24 24" fill="none" width="20" height="20">
                         <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor"/>
                     </svg>
                 </div>
-                <span class="brand-name">TaskFlow</span>
-                <span class="brand-tag">v1.0</span>
+                <div class="brand-text">
+                    <div class="brand-name">TaskFlow</div>
+                    <div class="brand-tag">workspace</div>
+                </div>
             </div>
 
             <div class="header-right">
+                <button class="ghost-btn" id="themeToggle" title="Сменить тему">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                    <span>Тема</span>
+                </button>
                 <button class="ghost-btn" id="notifyBadge" hidden>
                     <i class="fas fa-bell"></i> <span>Уведомления</span>
                 </button>
                 <button class="ghost-btn" id="installBadge" hidden>
                     <i class="fas fa-arrow-down-to-line"></i> <span>Установить</span>
                 </button>
+                <div class="header-divider"></div>
                 <button class="ghost-btn" id="exportBtn" title="Экспорт">
                     <i class="fas fa-file-export"></i>
                 </button>
@@ -83,8 +90,12 @@
                 <span class="nav-tab-num">04</span>
                 <span class="nav-tab-label">Словарь</span>
             </button>
-            <button class="nav-tab" data-tab="stats">
+            <button class="nav-tab" data-tab="diary">
                 <span class="nav-tab-num">05</span>
+                <span class="nav-tab-label">Дневник</span>
+            </button>
+            <button class="nav-tab" data-tab="stats">
+                <span class="nav-tab-num">06</span>
                 <span class="nav-tab-label">Статистика</span>
             </button>
         </nav>
@@ -92,24 +103,18 @@
         <!-- ========== ПАНЕЛЬ: Планировщик ========== -->
         <section class="panel active" id="panel-planner">
             <div class="split-2">
-                <!-- Задачи -->
                 <div class="block">
                     <header class="block-head">
                         <div>
                             <h2 class="block-title">Задачи</h2>
-                            <p class="block-sub" id="taskSubtitle">0 активных</p>
-                        </div>
-                        <div class="block-actions">
-                            <button class="icon-btn" id="taskFilterBtn" title="Фильтры">
-                                <i class="fas fa-sliders"></i>
-                            </button>
+                            <p class="block-sub" id="taskSubtitle">—</p>
                         </div>
                     </header>
 
                     <div class="add-row">
                         <input type="text" id="taskInput" class="input" placeholder="Что нужно сделать?">
                         <input type="date" id="taskDate" class="input input-date" title="Дедлайн">
-                        <button class="btn-primary" id="addTaskBtn">
+                        <button class="btn-primary btn-icon-only" id="addTaskBtn">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -131,19 +136,18 @@
                     <div class="list" id="taskList"></div>
                 </div>
 
-                <!-- Привычки -->
                 <div class="block">
                     <header class="block-head">
                         <div>
                             <h2 class="block-title">Привычки</h2>
-                            <p class="block-sub" id="habitSubtitle">0 отслеживается</p>
+                            <p class="block-sub" id="habitSubtitle">—</p>
                         </div>
                     </header>
 
                     <div class="add-row">
                         <input type="text" id="habitInput" class="input" placeholder="Новая привычка...">
                         <input type="number" id="habitTarget" class="input input-small" min="1" max="365" value="7" title="Цель (дней)">
-                        <button class="btn-primary" id="addHabitBtn">
+                        <button class="btn-primary btn-icon-only" id="addHabitBtn">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -155,7 +159,6 @@
 
         <!-- ========== ПАНЕЛЬ: Стратегия ========== -->
         <section class="panel" id="panel-strategy">
-            <!-- Шапка цели -->
             <header class="strategy-head">
                 <div class="strategy-head-left">
                     <div class="strategy-label">Основная цель</div>
@@ -172,7 +175,6 @@
                 </div>
             </header>
 
-            <!-- График -->
             <div class="chart-hero">
                 <div class="chart-hero-head">
                     <div class="chart-title-block">
@@ -194,9 +196,7 @@
                 <div class="chart-insight" id="chartInsight"></div>
             </div>
 
-            <!-- Сетка: дерево + дневник -->
             <div class="strategy-grid">
-                <!-- Дерево целей -->
                 <div class="block block-tree">
                     <header class="block-head">
                         <div>
@@ -212,11 +212,9 @@
                             </button>
                         </div>
                     </header>
-
                     <div class="tree" id="treeList"></div>
                 </div>
 
-                <!-- Дневник -->
                 <div class="block block-journal">
                     <header class="block-head">
                         <div>
@@ -300,7 +298,6 @@
                 <div class="dict-hero-meta" id="wodMeta"></div>
             </div>
 
-            <!-- Режим изучения -->
             <div class="study" id="studyMode" hidden>
                 <div class="study-head">
                     <button class="btn-soft btn-mini" id="studyExitBtn">
@@ -378,6 +375,34 @@
             </div>
         </section>
 
+                <!-- ========== ПАНЕЛЬ: Дневник ========== -->
+        <section class="panel" id="panel-diary">
+            <div class="block">
+                <header class="block-head">
+                    <div>
+                        <h2 class="block-title">Мой дневник</h2>
+                        <p class="block-sub" id="diaryListSub">—</p>
+                    </div>
+                </header>
+
+                <div class="diary-quick">
+                    <textarea id="diaryQuickInput" class="input diary-quick-input" rows="2" placeholder="Что у тебя на уме? Напиши..."></textarea>
+                    <button class="btn-primary" id="diaryQuickAdd">
+                        <i class="fas fa-paper-plane"></i> Записать
+                    </button>
+                </div>
+
+                <div class="diary-toolbar">
+                    <div class="search">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="diarySearch" class="input" placeholder="Поиск по записям...">
+                    </div>
+                </div>
+
+                <div class="diary-feed" id="diaryList"></div>
+            </div>
+        </section>
+
         <!-- ========== ПАНЕЛЬ: Статистика ========== -->
         <section class="panel" id="panel-stats">
             <div class="kpi-grid">
@@ -407,7 +432,6 @@
             </div>
         </section>
 
-        <!-- FOOTER -->
         <footer class="app-footer">
             <span>© TaskFlow · Данные хранятся только на устройстве</span>
             <div class="footer-actions">
@@ -499,7 +523,6 @@
         </div>
     </div>
 
-    <!-- Toast -->
     <div class="toast" id="toast"></div>
 
     <script src="script.js"></script>
